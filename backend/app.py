@@ -56,3 +56,4 @@ if __name__ == "__main__":
     app = create_app()
     create_initial_admin()
     app.run(host=config.HOST, port=config.PORT, debug=False)
+
