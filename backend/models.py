@@ -78,3 +78,28 @@ def deactivate_user(user_id):
     conn.execute("UPDATE users SET active = 0 WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()
+
+
+def change_password(user_id, current_password, new_password):
+    conn = get_db()
+    user = conn.execute(
+        "SELECT password_hash FROM users WHERE id = ? AND active = 1", (user_id,)
+    ).fetchone()
+
+    if not user:
+        conn.close()
+        return False, "Usuário não encontrado"
+
+    if not bcrypt.checkpw(current_password.encode("utf-8"), user["password_hash"].encode("utf-8")):
+        conn.close()
+        return False, "Senha atual incorreta"
+
+    if len(new_password) < 8:
+        conn.close()
+        return False, "A nova senha deve ter pelo menos 8 caracteres"
+
+    new_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user_id))
+    conn.commit()
+    conn.close()
+    return True, "Senha alterada com sucesso"

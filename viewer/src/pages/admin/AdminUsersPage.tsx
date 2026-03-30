@@ -1,0 +1,169 @@
+import { useEffect, useState } from 'react'
+import { Header } from '@/components/layout/header/Header'
+import { Sidebar } from '@/components/layout/sidebar/Sidebar'
+import { Button } from '@/components/common/buttons/Button'
+import { Modal } from '@/components/common/modals/Modal'
+import { Input } from '@/components/common/inputs/Input'
+import { Select } from '@/components/common/inputs/Select'
+import { RoleBadge } from '@/components/common/badges/RoleBadge'
+import { authService } from '@/services/auth/authService'
+import type { ApiUser, CouncilType, UserRole } from '@/types/auth'
+import { formatDate } from '@/utils/format'
+
+const COUNCIL_OPTIONS = [
+  { value: 'CRM', label: 'CRM' },
+  { value: 'CRTR', label: 'CRTR' },
+  { value: 'MATRICULA', label: 'Matrícula' },
+]
+
+const ROLE_OPTIONS = [
+  { value: 'medico', label: 'Médico' },
+  { value: 'tecnico', label: 'Técnico' },
+  { value: 'admin', label: 'Admin' },
+]
+
+export default function AdminUsersPage() {
+  const [users, setUsers] = useState<ApiUser[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [createOpen, setCreateOpen] = useState(false)
+
+  // Formulário de criação
+  const [name, setName] = useState('')
+  const [councilType, setCouncilType] = useState<CouncilType>('CRM')
+  const [councilNumber, setCouncilNumber] = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole] = useState<UserRole>('medico')
+  const [formError, setFormError] = useState('')
+  const [formLoading, setFormLoading] = useState(false)
+
+  async function fetchUsers() {
+    setIsLoading(true)
+    try {
+      const data = await authService.listUsers()
+      setUsers(data)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchUsers() }, [])
+
+  async function handleDeactivate(id: number) {
+    if (!confirm('Desativar este usuário?')) return
+    await authService.deactivateUser(id)
+    fetchUsers()
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    setFormError('')
+    if (!name || !councilNumber || !password) {
+      setFormError('Preencha todos os campos')
+      return
+    }
+    setFormLoading(true)
+    try {
+      await authService.createUser({ name, council_type: councilType, council_number: councilNumber, password, role })
+      setCreateOpen(false)
+      setName(''); setCouncilNumber(''); setPassword('')
+      fetchUsers()
+    } catch (err: unknown) {
+      setFormError(
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Erro ao criar usuário'
+      )
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-bg-primary text-text-primary">
+      <Header />
+      <div className="flex flex-1 min-h-0">
+        <Sidebar />
+        <main className="flex-1 p-6 overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-xl font-semibold">Gerenciar Usuários</h1>
+            <Button onClick={() => setCreateOpen(true)}>Novo usuário</Button>
+          </div>
+
+          {isLoading ? (
+            <p className="text-text-muted">Carregando...</p>
+          ) : (
+            <div className="rounded-lg border border-bg-tertiary overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-bg-secondary">
+                  <tr className="border-b border-bg-tertiary text-text-muted text-left">
+                    <th className="px-4 py-3 font-medium">Nome</th>
+                    <th className="px-4 py-3 font-medium">Conselho</th>
+                    <th className="px-4 py-3 font-medium">Papel</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Criado em</th>
+                    <th className="px-4 py-3 font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="border-b border-bg-tertiary hover:bg-bg-tertiary/50 transition-colors">
+                      <td className="px-4 py-3 text-text-primary">{u.name}</td>
+                      <td className="px-4 py-3 text-text-secondary font-mono text-xs">
+                        {u.council_type}/{u.council_number}
+                      </td>
+                      <td className="px-4 py-3">
+                        <RoleBadge role={u.role} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={u.active ? 'text-success' : 'text-text-muted'}>
+                          {u.active ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-text-secondary text-xs">
+                        {formatDate(u.created_at?.split('T')[0]?.replace(/-/g, ''))}
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.active === 1 && (
+                          <Button variant="danger" size="sm" onClick={() => handleDeactivate(u.id)}>
+                            Desativar
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </main>
+      </div>
+
+      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Novo Usuário">
+        <form onSubmit={handleCreate} className="space-y-4">
+          <Input label="Nome completo" value={name} onChange={(e) => setName(e.target.value)} placeholder="Dr. João Silva" />
+          <Select
+            label="Tipo de conselho"
+            options={COUNCIL_OPTIONS}
+            value={councilType}
+            onChange={(e) => setCouncilType(e.target.value as CouncilType)}
+          />
+          <Input label="Número" value={councilNumber} onChange={(e) => setCouncilNumber(e.target.value)} placeholder="12345" />
+          <Input label="Senha inicial" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" />
+          <Select
+            label="Papel"
+            options={ROLE_OPTIONS}
+            value={role}
+            onChange={(e) => setRole(e.target.value as UserRole)}
+          />
+          {formError && <p className="text-sm text-danger">{formError}</p>}
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="secondary" className="flex-1" onClick={() => setCreateOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" className="flex-1" loading={formLoading}>
+              Criar usuário
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  )
+}

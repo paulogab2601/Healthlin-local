@@ -139,3 +139,28 @@ def create_user():
 def delete_user(user_id):
     models.deactivate_user(user_id)
     return jsonify({"message": "Usuário desativado"})
+
+
+@auth_bp.route("/change-password", methods=["PUT"])
+@require_auth
+def change_password():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Dados não fornecidos"}), 400
+
+    current_password = data.get("current_password", "")
+    new_password = data.get("new_password", "")
+
+    if not current_password or not new_password:
+        return jsonify({"error": "Preencha todos os campos"}), 400
+
+    success, message = models.change_password(
+        user_id=g.user["user_id"],
+        current_password=current_password,
+        new_password=new_password,
+    )
+
+    if success:
+        return jsonify({"message": message})
+    return jsonify({"error": message}), 400
