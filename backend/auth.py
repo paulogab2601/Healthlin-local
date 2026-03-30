@@ -141,6 +141,13 @@ def delete_user(user_id):
     return jsonify({"message": "Usuário desativado"})
 
 
+@auth_bp.route("/users/<int:user_id>/reactivate", methods=["PUT"])
+@require_admin
+def reactivate_user(user_id):
+    models.reactivate_user(user_id)
+    return jsonify({"message": "Usuário reativado"})
+
+
 @auth_bp.route("/change-password", methods=["PUT"])
 @require_auth
 def change_password():

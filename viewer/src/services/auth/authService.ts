@@ -34,4 +34,8 @@ export const authService = {
   async deactivateUser(id: number): Promise<void> {
     await api.delete(`/api/auth/users/${id}`)
   },
+
+  async reactivateUser(id: number): Promise<void> {
+    await api.put(`/api/auth/users/${id}/reactivate`)
+  },
 }

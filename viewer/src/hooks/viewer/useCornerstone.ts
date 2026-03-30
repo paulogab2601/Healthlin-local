@@ -1,14 +1,22 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Types } from '@cornerstonejs/core'
 
-let initialized = false
-let renderingEngine: Types.IRenderingEngine | null = null
+// Singleton compartilhado entre montagens do componente
+let _initialized = false
+let _engine: Types.IRenderingEngine | null = null
 
 export function useCornerstone() {
+  const [renderingEngine, setRenderingEngine] = useState<Types.IRenderingEngine | null>(_engine)
   const initializingRef = useRef(false)
 
   useEffect(() => {
-    if (initialized || initializingRef.current) return
+    // Já inicializado em montagem anterior — expõe via state
+    if (_engine) {
+      setRenderingEngine(_engine)
+      return
+    }
+
+    if (_initialized || initializingRef.current) return
     initializingRef.current = true
 
     async function init() {
@@ -35,8 +43,9 @@ export function useCornerstone() {
           },
         })
 
-        renderingEngine = new RenderingEngine('healthlin-engine')
-        initialized = true
+        _engine = new RenderingEngine('healthlin-engine')
+        _initialized = true
+        setRenderingEngine(_engine)
       } catch (err) {
         console.error('[Cornerstone] Falha na inicialização:', err)
       }
@@ -45,5 +54,5 @@ export function useCornerstone() {
     init()
   }, [])
 
-  return { renderingEngine: renderingEngine as Types.IRenderingEngine | null }
+  return { renderingEngine }
 }

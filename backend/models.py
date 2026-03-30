@@ -80,6 +80,13 @@ def deactivate_user(user_id):
     conn.close()
 
 
+def reactivate_user(user_id):
+    conn = get_db()
+    conn.execute("UPDATE users SET active = 1 WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
 def change_password(user_id, current_password, new_password):
     conn = get_db()
     user = conn.execute(

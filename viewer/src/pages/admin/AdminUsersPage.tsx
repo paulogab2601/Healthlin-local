@@ -54,6 +54,12 @@ export default function AdminUsersPage() {
     fetchUsers()
   }
 
+  async function handleReactivate(id: number) {
+    if (!confirm('Reativar este usuário?')) return
+    await authService.reactivateUser(id)
+    fetchUsers()
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setFormError('')
@@ -121,9 +127,13 @@ export default function AdminUsersPage() {
                         {formatDate(u.created_at?.split('T')[0]?.replace(/-/g, ''))}
                       </td>
                       <td className="px-4 py-3">
-                        {u.active === 1 && (
+                        {u.active === 1 ? (
                           <Button variant="danger" size="sm" onClick={() => handleDeactivate(u.id)}>
                             Desativar
+                          </Button>
+                        ) : (
+                          <Button variant="secondary" size="sm" onClick={() => handleReactivate(u.id)}>
+                            Reativar
                           </Button>
                         )}
                       </td>
