@@ -1,0 +1,51 @@
+{
+  "Name": "OrthanServer-Local",
+  "StorageDirectory": "/var/lib/orthanc/db",
+  "IndexDirectory": "/var/lib/orthanc/db",
+
+  "HttpPort": 8042,
+  "DicomPort": 4242,
+
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "admin": "sua_senha_forte_aqui"
+  },
+
+  "DicomAet": "ORTHANC",
+  "DicomCheckCalledAet": false,
+
+  "DicomModalities": {
+    "maquina-rx": {
+      "AET": "RX_AET",
+      "Host": "192.168.1.XX",
+      "Port": 104,
+      "AllowEcho": true,
+      "AllowStore": true
+    }
+  },
+
+  "HttpProxy": "",
+  "Ssl": false,
+
+  "Plugins": [
+    "/usr/share/orthanc/plugins"
+  ],
+
+  "LuaScripts": [],
+
+  "StorageCompression": false,
+  "MaximumStorageSize": 0,
+  "MaximumPatientCount": 0,
+
+  "Worklist": {
+    "Enable": false
+  },
+
+  "DicomWeb": {
+    "Enable": true,
+    "Root": "/dicom-web/",
+    "EnableWado": true,
+    "WadoRoot": "/wado"
+  }
+}
