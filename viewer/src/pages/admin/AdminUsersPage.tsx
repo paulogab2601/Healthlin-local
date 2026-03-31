@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuthStore } from '@/store/auth'
 import { Header } from '@/components/layout/header/Header'
 import { Sidebar } from '@/components/layout/sidebar/Sidebar'
 import { Button } from '@/components/common/buttons/Button'
@@ -23,6 +24,7 @@ const ROLE_OPTIONS = [
 ]
 
 export default function AdminUsersPage() {
+  const currentUser = useAuthStore((s) => s.user)
   const [users, setUsers] = useState<ApiUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
@@ -50,8 +52,15 @@ export default function AdminUsersPage() {
 
   async function handleDeactivate(id: number) {
     if (!confirm('Desativar este usuário?')) return
-    await authService.deactivateUser(id)
-    fetchUsers()
+    try {
+      await authService.deactivateUser(id)
+      fetchUsers()
+    } catch (err: unknown) {
+      alert(
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        'Erro ao desativar usuário'
+      )
+    }
   }
 
   async function handleReactivate(id: number) {
@@ -127,8 +136,21 @@ export default function AdminUsersPage() {
                         {formatDate(u.created_at?.split('T')[0]?.replace(/-/g, ''))}
                       </td>
                       <td className="px-4 py-3">
-                        {u.active === 1 ? (
-                          <Button variant="danger" size="sm" onClick={() => handleDeactivate(u.id)}>
+                        {u.id === 1 ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-text-muted" title="Administrador principal — não pode ser desativado">
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            Protegido
+                          </span>
+                        ) : u.active === 1 ? (
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDeactivate(u.id)}
+                            disabled={u.id === currentUser?.id}
+                            title={u.id === currentUser?.id ? 'Você não pode desativar sua própria conta' : undefined}
+                          >
                             Desativar
                           </Button>
                         ) : (

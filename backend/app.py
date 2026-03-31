@@ -3,6 +3,7 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 import config
 import models
+import orthanc_sync
 from auth import auth_bp
 from proxy import proxy_bp
 
@@ -10,7 +11,9 @@ FRONTEND_DIST = os.getenv("FRONTEND_DIST", "/opt/healthlin/frontend/dist")
 
 
 def create_app():
-    app = Flask(__name__, static_folder=FRONTEND_DIST, static_url_path="")
+    # static_folder=None evita que o Flask registre uma rota /<path:filename>
+    # que conflita com o catch-all do SPA e retorna 404 para rotas como /dashboard
+    app = Flask(__name__, static_folder=None)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     # Registra blueprints
@@ -24,15 +27,15 @@ def create_app():
     def health():
         return {"status": "ok"}
 
-    # SPA fallback — serve index.html para qualquer rota não-API
+    # SPA fallback — serve arquivos estáticos e index.html para qualquer rota não-API
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
     def serve_spa(path):
-        dist = app.static_folder
-        if dist and path and os.path.exists(os.path.join(dist, path)):
-            return send_from_directory(dist, path)
-        if dist and os.path.exists(os.path.join(dist, "index.html")):
-            return send_from_directory(dist, "index.html")
+        if path and os.path.exists(os.path.join(FRONTEND_DIST, path)):
+            return send_from_directory(FRONTEND_DIST, path)
+        index = os.path.join(FRONTEND_DIST, "index.html")
+        if os.path.exists(index):
+            return send_from_directory(FRONTEND_DIST, "index.html")
         return {"error": "Frontend não encontrado. Execute npm run build."}, 404
 
     return app
@@ -69,5 +72,6 @@ def create_initial_admin():
 if __name__ == "__main__":
     app = create_app()
     create_initial_admin()
+    orthanc_sync.sync_orthanc_users()
     app.run(host=config.HOST, port=config.PORT, debug=False)
 

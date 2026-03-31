@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Healthlin - Auditoria de Achados</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111a2b;
+      --text: #e8eefc;
+      --muted: #9fb0d1;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --line: #25324a;
+      --code: #0a1020;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 28px 18px 64px;
+    }
+    h1, h2, h3 { margin: 0 0 10px; line-height: 1.2; }
+    h1 { font-size: 28px; }
+    h2 { font-size: 21px; margin-top: 34px; }
+    h3 { font-size: 17px; margin-top: 24px; }
+    p { margin: 0 0 10px; color: var(--muted); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 14px 8px;
+      margin-top: 12px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    .sev-critico { background: rgba(239, 68, 68, .2); color: #fecaca; border: 1px solid rgba(239, 68, 68, .4); }
+    .sev-alto { background: rgba(245, 158, 11, .2); color: #fde68a; border: 1px solid rgba(245, 158, 11, .4); }
+    .sev-medio { background: rgba(56, 189, 248, .18); color: #bae6fd; border: 1px solid rgba(56, 189, 248, .4); }
+    .sev-baixo { background: rgba(156, 163, 175, .2); color: #e5e7eb; border: 1px solid rgba(156, 163, 175, .4); }
+    .st-confirmado { color: var(--ok); font-weight: 700; }
+    .st-parcial { color: var(--warn); font-weight: 700; }
+    .st-nao { color: var(--bad); font-weight: 700; }
+    ul { margin: 0 0 10px 18px; padding: 0; }
+    li { margin: 0 0 6px; color: var(--muted); }
+    code {
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 1px 5px;
+      color: #dbeafe;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12.5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--card);
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 10px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    th { color: #d6e2ff; background: #0f1728; }
+    tr:last-child td { border-bottom: 0; }
+    .small { font-size: 12px; color: #9fb0d1; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Auditoria Tecnica - Healthlin</h1>
+    <p>Data da verificacao: 2026-03-30</p>
+    <p>Escopo: validacao de veracidade dos 8 achados reportados (frontend + backend), por leitura direta de codigo e checagem da versao travada de dependencia.</p>
+
+    <h2>Resumo Executivo</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Achado</th>
+          <th>Severidade</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Inicializacao do viewer pode falhar em runtime</td>
+          <td>Critico</td>
+          <td class="st-confirmado">Confirmado</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Filtros modalidade/data nao sao aplicados de fato</td>
+          <td>Alto</td>
+          <td class="st-confirmado">Confirmado</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Sessao admin pode sumir apos refresh</td>
+          <td>Alto</td>
+          <td class="st-confirmado">Confirmado</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Requisicao duplicada de estudos ao selecionar paciente</td>
+          <td>Medio</td>
+          <td class="st-confirmado">Confirmado</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Navegacao de frames/slices apos primeiro item</td>
+          <td>Medio</td>
+          <td class="st-parcial">Parcialmente confirmado (risco alto)</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>Retry de conexao no viewer pode virar no-op</td>
+          <td>Medio</td>
+          <td class="st-parcial">Parcialmente confirmado</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>Admin pode desativar a si mesmo/ultimo admin</td>
+          <td>Medio (backend)</td>
+          <td class="st-confirmado">Confirmado</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>JWT com segredo default inseguro</td>
+          <td>Baixo (seguranca)</td>
+          <td class="st-confirmado">Confirmado</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Detalhamento por Achado</h2>
+
+    <div class="card">
+      <h3><span class="badge sev-critico">CRITICO</span>1) Inicializacao do viewer pode falhar em runtime</h3>
+      <p>Status: <span class="st-confirmado">Confirmado</span></p>
+      <ul>
+        <li>O frontend chama <code>dicomImageLoader.init(...)</code> em <code>viewer/src/hooks/viewer/useCornerstone.ts:32</code>.</li>
+        <li>A tipagem local em <code>viewer/src/types/dicom-image-loader.d.ts:2</code> declara <code>init</code> manualmente.</li>
+        <li>Na versao travada <code>@cornerstonejs/dicom-image-loader@1.86.0</code> (lock em <code>viewer/package-lock.json:1653</code>), o modulo exporta <code>configure</code> e <code>webWorkerManager</code>, mas nao expoe <code>init</code>.</li>
+        <li>Com isso, a chamada em runtime tende a gerar erro, cair no <code>catch</code> em <code>useCornerstone.ts:49</code> e nao montar <code>_engine</code>, alinhado ao sintoma de viewer sem imagem.</li>
+      </ul>
+      <p>Impacto: viewer nao inicializa de forma confiavel; regressao funcional primaria.</p>
+      <p>Recomendacao: remover dependencia de tipagem forjada e alinhar inicializacao com API real da versao (ex.: <code>webWorkerManager.initialize(...)</code> quando aplicavel) ou atualizar pacote + codigo em conjunto.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-alto">ALTO</span>2) Filtros modalidade/data nao sao aplicados</h3>
+      <p>Status: <span class="st-confirmado">Confirmado</span></p>
+      <ul>
+        <li>UI atualiza estado em <code>viewer/src/components/dashboard/filters/Filters.tsx:24,30,37</code>.</li>
+        <li>Pacientes sao filtrados apenas por texto (<code>searchQuery</code>) em <code>viewer/src/hooks/orthanc/usePatients.ts:12-18</code>.</li>
+        <li>Estudos retornam sem filtro em <code>viewer/src/hooks/orthanc/useStudies.ts:13</code> e <code>viewer/src/components/dashboard/exam-list/ExamList.tsx:34</code>.</li>
+      </ul>
+      <p>Impacto: falsa percepcao de filtro aplicado; risco de erro operacional do usuario.</p>
+      <p>Recomendacao: aplicar filtro no dataset de estudos (modality/date) e, se desejado, tambem no nivel de paciente.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-alto">ALTO</span>3) Sessao admin pode sumir apos refresh</h3>
+      <p>Status: <span class="st-confirmado">Confirmado</span></p>
+      <ul>
+        <li>Store inicia <code>token</code> e <code>isAuthenticated</code> a partir do localStorage, mas <code>user</code> inicia como <code>null</code> em <code>viewer/src/store/auth/index.ts:24-26</code>.</li>
+        <li>Protecao admin exige <code>user</code> valido em <code>viewer/src/App.tsx:15-17</code>.</li>
+        <li><code>loadMe()</code> existe (<code>auth/index.ts:64-74</code>) mas o hook que o chama (<code>viewer/src/hooks/auth/useRequireAuth.ts</code>) nao e utilizado em lugar nenhum.</li>
+      </ul>
+      <p>Impacto: refresh invalida acesso a rota admin mesmo com token persistido.</p>
+      <p>Recomendacao: hidratar usuario na inicializacao global da app (boot) antes da avaliacao de rota admin.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-medio">MEDIO</span>4) Requisicao duplicada de estudos ao selecionar paciente</h3>
+      <p>Status: <span class="st-confirmado">Confirmado</span></p>
+      <ul>
+        <li>Primeiro disparo no clique: <code>viewer/src/components/dashboard/patient-list/PatientList.tsx:37</code>.</li>
+        <li>Segundo disparo no efeito de <code>useStudies</code>: <code>viewer/src/hooks/orthanc/useStudies.ts:7-10</code>.</li>
+      </ul>
+      <p>Impacto: latencia maior, risco de race condition e flicker em loading.</p>
+      <p>Recomendacao: manter uma unica fonte de fetch (evento ou efeito), nao as duas.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-medio">MEDIO</span>5) Navegacao de frames/slices apos primeiro item</h3>
+      <p>Status: <span class="st-parcial">Parcialmente confirmado (risco alto)</span></p>
+      <ul>
+        <li>Viewer envia stack unitario (<code>[imageId]</code>) e passa <code>currentFrame</code> como indice em <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx:51</code>.</li>
+        <li><code>currentFrame</code> cresce pelo slider/store em <code>viewer/src/store/viewer/index.ts:82-85</code>.</li>
+        <li>Logica fica inconsistente para <code>currentFrame &gt; 0</code> em stack de tamanho 1; dependendo do comportamento da lib, pode quebrar, ignorar indice ou renderizar estado invalido.</li>
+      </ul>
+      <p>Impacto: navegacao instavel entre instancias/frames.</p>
+      <p>Recomendacao: com stack unitario, passar indice 0 no <code>setStack</code>; manter navegacao selecionando a instancia correta no store.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-medio">MEDIO</span>6) Retry de conexao no viewer pode virar no-op</h3>
+      <p>Status: <span class="st-parcial">Parcialmente confirmado</span></p>
+      <ul>
+        <li><code>studyId</code> vem de <code>useViewerStore.getState()</code> em <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx:64</code>, fora de assinatura reativa do componente.</li>
+        <li>Retry usa esse valor em <code>DicomCanvas.tsx:71</code>.</li>
+        <li>Se o estado ainda nao tiver <code>currentStudy</code> no momento do erro/offline, o retry pode nao disparar nada (<code>undefined</code>).</li>
+      </ul>
+      <p>Impacto: recuperacao manual de erro menos confiavel.</p>
+      <p>Recomendacao: derivar <code>studyId</code> de assinatura reativa do store ou da rota (<code>useParams</code>), nao de snapshot solto.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-medio">MEDIO</span>7) Admin pode desativar a si mesmo/ultimo admin</h3>
+      <p>Status: <span class="st-confirmado">Confirmado</span></p>
+      <ul>
+        <li>Endpoint desativa sem regra de protecao em <code>backend/auth.py:137-141</code>.</li>
+        <li>Persistencia tambem desativa direto em <code>backend/models.py:76-80</code>, sem impedir lockout do ultimo admin ativo.</li>
+      </ul>
+      <p>Impacto: risco real de lockout administrativo.</p>
+      <p>Recomendacao: bloquear auto-desativacao e impedir desativacao do ultimo admin ativo.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-baixo">BAIXO</span>8) Segredo JWT default inseguro</h3>
+      <p>Status: <span class="st-confirmado">Confirmado</span></p>
+      <ul>
+        <li>Fallback fixo em <code>backend/config.py:9</code>: <code>TROQUE_ESTA_CHAVE_EM_PRODUCAO</code>.</li>
+      </ul>
+      <p>Impacto: em deploy sem variavel de ambiente, token pode ser previsivel/compartilhado.</p>
+      <p>Recomendacao: falhar no startup sem <code>JWT_SECRET</code> valido em ambiente de producao.</p>
+    </div>
+
+    <h2>Notas Finais</h2>
+    <ul>
+      <li>Nao houve evidencia de falso positivo total entre os itens listados; 6 confirmados e 2 parcialmente confirmados (com risco tecnico real).</li>
+      <li>Os itens #1, #2 e #3 concentram maior impacto de negocio para usuario final.</li>
+    </ul>
+
+    <p class="small">Arquivo gerado em: <code>healthlin-local/audit.html</code></p>
+  </div>
+</body>
+</html>

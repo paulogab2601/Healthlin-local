@@ -54,8 +54,9 @@ export function ExamList() {
 
             <div className="flex items-center justify-between">
               <div className="flex flex-wrap gap-1">
-                {/* Modality vem das séries; exibimos placeholder aqui */}
-                <ModalityBadge modality={undefined} />
+                {(tags.ModalitiesInStudy ?? '').split('\\').filter(Boolean).map((m) => (
+                  <ModalityBadge key={m} modality={m} />
+                ))}
               </div>
               <Button size="sm" onClick={() => navigate(`/viewer/${study.ID}`)}>
                 Visualizar

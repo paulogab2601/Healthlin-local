@@ -1,0 +1,1 @@
+function c(e){if(!e)return"—";const t=e.replace(/[-/]/g,"");if(t.length!==8)return e;const n=t.slice(0,4),r=t.slice(4,6);return`${t.slice(6,8)}/${r}/${n}`}function a(e){if(!e)return"Paciente desconhecido";const t=e.split("^"),n=t[0]?.trim()??"",r=t[1]?.trim()??"";return r&&n?`${r} ${n}`:n||r||"Paciente desconhecido"}export{c as a,a as f};

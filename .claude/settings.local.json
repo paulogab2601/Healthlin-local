@@ -6,7 +6,11 @@
       "Bash(npx vite:*)",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(node_modules/.bin/vite build:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "WebFetch(domain:unpkg.com)",
+      "Bash(find c:/Users/paulo/Desktop/Repositories/Healthlin-local/viewer/node_modules/@cornerstonejs/core/dist -name *.d.ts)",
+      "Bash(find c:/Users/paulo/Desktop/Repositories/Healthlin-local/viewer/node_modules/@cornerstonejs/core/dist/cjs -name enums* -o -name Enums*)",
+      "Bash(find c:/Users/paulo/Desktop/Repositories/Healthlin-local/viewer/node_modules/@cornerstonejs/core -name RenderingEngine*)"
     ]
   }
 }

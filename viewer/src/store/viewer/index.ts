@@ -4,6 +4,29 @@ import { seriesService } from '@/services/orthanc/series'
 import type { Study, Series, Instance } from '@/types/orthanc'
 import type { ToolMode, WindowLevel, Annotation } from '@/types/viewer'
 
+function normalizeInstances(
+  instanceList: Array<string | Instance>,
+  seriesId: string,
+): Instance[] {
+  return instanceList
+    .map((item): Instance | null => {
+      if (typeof item === 'string') {
+        return {
+          ID: item,
+          ParentSeries: seriesId,
+          MainDicomTags: {},
+        }
+      }
+
+      if (item?.ID) {
+        return item
+      }
+
+      return null
+    })
+    .filter((item): item is Instance => item !== null)
+}
+
 interface ViewerState {
   currentStudy: Study | null
   currentSeries: Series | null
@@ -62,8 +85,11 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     set({ isLoading: true })
     try {
       const series = await seriesService.get(seriesId)
-      const instanceList = await seriesService.getInstances(seriesId)
-      const instances: Instance[] = instanceList
+      const instanceList =
+        series.Instances?.length > 0
+          ? series.Instances
+          : await seriesService.getInstances(seriesId)
+      const instances = normalizeInstances(instanceList, seriesId)
 
       set({
         currentSeries: series,

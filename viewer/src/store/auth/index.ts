@@ -10,6 +10,7 @@ interface AuthState {
   token: string | null
   isAuthenticated: boolean
   isDefaultPassword: boolean
+  isHydrating: boolean
   isLoading: boolean
   error: string | null
 
@@ -25,6 +26,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem(TOKEN_KEY),
   isAuthenticated: !!localStorage.getItem(TOKEN_KEY),
   isDefaultPassword: false,
+  isHydrating: !!localStorage.getItem(TOKEN_KEY),
   isLoading: false,
   error: null,
 
@@ -63,13 +65,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   loadMe: async () => {
     const { token } = get()
-    if (!token) return
+    if (!token) {
+      set({ isHydrating: false })
+      return
+    }
 
     try {
       const user = await authService.me()
-      set({ user, isAuthenticated: true })
+      set({ user, isAuthenticated: true, isHydrating: false })
     } catch {
       get().logout()
+      set({ isHydrating: false })
     }
   },
 

@@ -21,16 +21,22 @@ export function useCornerstone() {
 
     async function init() {
       try {
-        const { init: csInit, RenderingEngine } = await import('@cornerstonejs/core')
-        const { init: toolsInit } = await import('@cornerstonejs/tools')
+        const cornerstone = await import('@cornerstonejs/core')
+        // Importa apenas o módulo de inicialização para evitar carregar todo o
+        // índice de tools (que possui cadeias de reexport circulares).
+        const { default: toolsInit } = await import('@cornerstonejs/tools/dist/esm/init.js')
         const dicomImageLoader = await import('@cornerstonejs/dicom-image-loader')
 
-        await csInit()
+        // Registra a instância do cornerstone no loader (obrigatório na v1.86.0)
+        dicomImageLoader.external.cornerstone = cornerstone
+
+        await cornerstone.init()
         await toolsInit()
 
-        // Configura o WADO URI loader com token JWT
-        dicomImageLoader.init({
+        // Inicializa web workers (init() não existe na v1.86.0 — usar webWorkerManager)
+        dicomImageLoader.webWorkerManager.initialize({
           maxWebWorkers: navigator.hardwareConcurrency || 1,
+          startWebWorkersOnDemand: true,
         })
 
         // Injeta token nas requisições do loader
@@ -43,7 +49,7 @@ export function useCornerstone() {
           },
         })
 
-        _engine = new RenderingEngine('healthlin-engine')
+        _engine = new cornerstone.RenderingEngine('healthlin-engine')
         _initialized = true
         setRenderingEngine(_engine)
       } catch (err) {

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 import { useCornerstone } from '@/hooks/viewer/useCornerstone'
 import { useViewerStore } from '@/store/viewer'
 import { instancesService } from '@/services/orthanc/instances'
@@ -14,10 +15,10 @@ interface StackViewport {
 
 export function DicomCanvas() {
   const divRef = useRef<HTMLDivElement>(null)
+  const { studyId } = useParams<{ studyId: string }>()
   const { renderingEngine } = useCornerstone()
   const {
     currentInstance,
-    currentFrame,
     isOrtahncOffline,
     isLoading,
     setOrtahncOffline,
@@ -30,11 +31,15 @@ export function DicomCanvas() {
 
     const existing = renderingEngine.getViewport(VIEWPORT_ID)
     if (!existing) {
-      renderingEngine.enableElement({
-        viewportId: VIEWPORT_ID,
-        type: 'STACK' as unknown as never,
-        element: divRef.current,
-      })
+      try {
+        renderingEngine.enableElement({
+          viewportId: VIEWPORT_ID,
+          type: 'stack' as unknown as never,
+          element: divRef.current,
+        })
+      } catch (err) {
+        console.error('[DicomCanvas] Failed to enable viewport:', err)
+      }
     }
   }, [renderingEngine])
 
@@ -48,20 +53,23 @@ export function DicomCanvas() {
         if (!viewport) return
 
         const imageId = instancesService.getFileUrl(currentInstance!.ID)
-        await viewport.setStack([imageId], currentFrame)
+        // Stack unitário: cada instância é um arquivo DICOM separado.
+        // frameIndex deve ser sempre 0; currentFrame é o índice da instância
+        // na série, gerenciado pelo store — não é o índice de frame dentro do stack.
+        await viewport.setStack([imageId], 0)
         viewport.render()
       } catch (err: unknown) {
         const status = (err as { response?: { status?: number } })?.response?.status
         if (status === 502 || status === 504) {
           setOrtahncOffline(true)
+        } else {
+          console.error('[DicomCanvas] Failed to load image:', err)
         }
       }
     }
 
     loadImage()
-  }, [renderingEngine, currentInstance, currentFrame, setOrtahncOffline])
-
-  const studyId = useViewerStore.getState().currentStudy?.ID
+  }, [renderingEngine, currentInstance, setOrtahncOffline])
 
   if (isOrtahncOffline) {
     return (

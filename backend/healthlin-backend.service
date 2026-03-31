@@ -13,8 +13,10 @@ RestartSec=5
 
 Environment=ORTHANC_URL=http://localhost:8042
 Environment=ORTHANC_USER=admin
-Environment=ORTHANC_PASS=sua_senha
-Environment=JWT_SECRET=TROQUE_ESTA_CHAVE_EM_PRODUCAO
+Environment=ORTHANC_PASS=1234
+Environment=ORTHANC_CREDENTIALS_PATH=/etc/orthanc/credentials.json
+Environment=JWT_SECRET=332291180@*p
+Environment=FLASK_ENV=production
 Environment=DB_PATH=/opt/healthlin/backend/healthlin.db
 
 [Install]

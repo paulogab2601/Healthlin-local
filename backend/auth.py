@@ -1,9 +1,11 @@
 import jwt
 import functools
+import threading
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, g
 import config
 import models
+import orthanc_sync
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -47,6 +49,11 @@ def require_admin(f):
             return jsonify({"error": "Acesso restrito a administradores"}), 403
         return f(*args, **kwargs)
     return decorated
+
+
+def _sync_orthanc():
+    """Dispara o sync do Orthanc em background para não bloquear a resposta."""
+    threading.Thread(target=orthanc_sync.sync_orthanc_users, daemon=True).start()
 
 
 # ── Rotas ──────────────────────────────────────────────
@@ -130,6 +137,7 @@ def create_user():
     )
 
     if success:
+        _sync_orthanc()
         return jsonify({"message": message}), 201
     return jsonify({"error": message}), 409
 
@@ -137,14 +145,18 @@ def create_user():
 @auth_bp.route("/users/<int:user_id>", methods=["DELETE"])
 @require_admin
 def delete_user(user_id):
-    models.deactivate_user(user_id)
-    return jsonify({"message": "Usuário desativado"})
+    success, message = models.deactivate_user(user_id, requester_id=g.user["user_id"])
+    if not success:
+        return jsonify({"error": message}), 403
+    _sync_orthanc()
+    return jsonify({"message": message})
 
 
 @auth_bp.route("/users/<int:user_id>/reactivate", methods=["PUT"])
 @require_admin
 def reactivate_user(user_id):
     models.reactivate_user(user_id)
+    _sync_orthanc()
     return jsonify({"message": "Usuário reativado"})
 
 
@@ -169,5 +181,6 @@ def change_password():
     )
 
     if success:
+        _sync_orthanc()
         return jsonify({"message": message})
     return jsonify({"error": message}), 400

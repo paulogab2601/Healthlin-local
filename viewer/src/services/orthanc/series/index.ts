@@ -1,5 +1,7 @@
 import api from '../../api'
-import type { Series } from '@/types/orthanc'
+import type { Series, Instance } from '@/types/orthanc'
+
+type SeriesInstancesResponseItem = string | Instance
 
 export const seriesService = {
   async get(id: string): Promise<Series> {
@@ -7,8 +9,8 @@ export const seriesService = {
     return res.data
   },
 
-  async getInstances(id: string) {
-    const res = await api.get(`/api/orthanc/series/${id}/instances`)
+  async getInstances(id: string): Promise<SeriesInstancesResponseItem[]> {
+    const res = await api.get<SeriesInstancesResponseItem[]>(`/api/orthanc/series/${id}/instances`)
     return res.data
   },
 }

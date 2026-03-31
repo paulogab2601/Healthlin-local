@@ -1,15 +1,26 @@
 import requests
-from flask import Blueprint, request, Response
+from flask import Blueprint, request, Response, g
 from auth import require_auth
 import config
+import models
 
 proxy_bp = Blueprint("proxy", __name__, url_prefix="/api/orthanc")
 
-ORTHANC_AUTH = (config.ORTHANC_USER, config.ORTHANC_PASS)
 TIMEOUT = 30
 
 # Headers que não devem ser repassados
 EXCLUDED_HEADERS = {"host", "authorization", "content-length", "transfer-encoding"}
+
+
+def _get_orthanc_auth():
+    """Retorna as credenciais do usuário logado para autenticação no Orthanc.
+    Usa o admin global como fallback caso a senha do usuário não esteja armazenada."""
+    user_id = g.user.get("user_id")
+    if user_id:
+        creds = models.get_user_credentials(user_id)
+        if creds:
+            return creds
+    return (config.ORTHANC_USER, config.ORTHANC_PASS)
 
 
 def proxy_request(orthanc_path):
@@ -33,18 +44,30 @@ def proxy_request(orthanc_path):
             url=url,
             headers=headers,
             data=request.get_data(),
-            auth=ORTHANC_AUTH,
+            auth=_get_orthanc_auth(),
             timeout=TIMEOUT,
             stream=True,
         )
 
         # Monta a resposta de volta pro cliente
-        excluded_resp_headers = {"content-encoding", "transfer-encoding", "content-length"}
+        # www-authenticate nunca deve chegar ao browser — o proxy autentica
+        # com o Orthanc internamente; expô-lo dispara popup nativo de Basic Auth
+        excluded_resp_headers = {"content-encoding", "transfer-encoding", "content-length", "www-authenticate"}
         response_headers = {
             key: value
             for key, value in resp.headers.items()
             if key.lower() not in excluded_resp_headers
         }
+
+        # 401 do Orthanc jamais deve chegar ao cliente como 401 —
+        # o interceptor Axios trata qualquer 401 como token JWT inválido e desloga.
+        # Credencial errada no Orthanc é falha de configuração do servidor (502).
+        if resp.status_code == 401:
+            return Response(
+                '{"error": "Falha de autenticação com o Orthanc. Verifique ORTHANC_USER/ORTHANC_PASS."}',
+                status=502,
+                content_type="application/json",
+            )
 
         return Response(
             resp.content,
