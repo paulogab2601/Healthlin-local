@@ -1,4 +1,5 @@
 import { useViewerStore } from '@/store/viewer'
+import { useCornerstone } from '@/hooks/viewer/useCornerstone'
 import type { ToolMode } from '@/types/viewer'
 
 interface Tool {
@@ -66,13 +67,14 @@ const TOOLS: Tool[] = [
 
 export function Toolbar() {
   const { activeTool, setActiveTool } = useViewerStore()
+  const { activateTool } = useCornerstone()
 
   return (
     <div className="flex items-center gap-1 px-2 py-1 bg-bg-secondary border-b border-bg-tertiary">
       {TOOLS.map((tool) => (
         <button
           key={tool.mode}
-          onClick={() => setActiveTool(tool.mode)}
+          onClick={() => { setActiveTool(tool.mode); activateTool(tool.mode) }}
           title={tool.label}
           className={[
             'flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors',

@@ -21,10 +21,14 @@ const DISPLAYED_TAGS: { key: keyof SimplifiedTags; label: string }[] = [
 export function MetadataPanel() {
   const currentInstance = useViewerStore((s) => s.currentInstance)
   const [tags, setTags] = useState<SimplifiedTags | null>(null)
+  const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
-    if (!currentInstance) { setTags(null); return }
-    instancesService.getSimplifiedTags(currentInstance.ID).then(setTags).catch(() => setTags(null))
+    if (!currentInstance) { setTags(null); setHasError(false); return }
+    setHasError(false)
+    instancesService.getSimplifiedTags(currentInstance.ID)
+      .then((data) => { setTags(data); setHasError(false) })
+      .catch(() => { setTags(null); setHasError(true) })
   }, [currentInstance])
 
   return (
@@ -33,7 +37,9 @@ export function MetadataPanel() {
         <p className="font-semibold text-text-muted uppercase tracking-wider">Metadados DICOM</p>
       </div>
 
-      {!tags ? (
+      {hasError ? (
+        <div className="p-3 text-danger">Erro ao carregar metadados</div>
+      ) : !tags ? (
         <div className="p-3 text-text-muted">Selecione uma instância</div>
       ) : (
         <dl className="p-3 space-y-2">

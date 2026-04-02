@@ -7,7 +7,8 @@ import orthanc_sync
 from auth import auth_bp
 from proxy import proxy_bp
 
-FRONTEND_DIST = os.getenv("FRONTEND_DIST", "/opt/healthlin/frontend/dist")
+_DEFAULT_DIST = os.path.join(os.path.dirname(__file__), "..", "viewer", "dist")
+FRONTEND_DIST = os.getenv("FRONTEND_DIST", os.path.abspath(_DEFAULT_DIST))
 
 
 def create_app():

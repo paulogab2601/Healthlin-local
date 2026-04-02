@@ -18,6 +18,7 @@ Environment=ORTHANC_CREDENTIALS_PATH=/etc/orthanc/credentials.json
 Environment=JWT_SECRET=332291180@*p
 Environment=FLASK_ENV=production
 Environment=DB_PATH=/opt/healthlin/backend/healthlin.db
+Environment=FRONTEND_DIST=/opt/healthlin/frontend/dist
 
 [Install]
 WantedBy=multi-user.target

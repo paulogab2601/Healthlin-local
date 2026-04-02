@@ -165,6 +165,19 @@ def list_users_with_credentials():
     return result
 
 
+def update_password_encrypted(user_id: int, password: str) -> None:
+    """Preenche password_encrypted quando está NULL (backfill pós-migração).
+    Não sobrescreve se já estiver preenchido."""
+    encrypted = _get_cipher().encrypt(password.encode()).decode()
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET password_encrypted = ? WHERE id = ? AND password_encrypted IS NULL",
+        (encrypted, user_id),
+    )
+    conn.commit()
+    conn.close()
+
+
 def change_password(user_id, current_password, new_password):
     conn = get_db()
     user = conn.execute(

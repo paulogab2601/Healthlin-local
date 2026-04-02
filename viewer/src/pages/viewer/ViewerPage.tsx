@@ -11,11 +11,19 @@ import { Spinner } from '@/components/common/loading/Spinner'
 
 export default function ViewerPage() {
   const { studyId } = useParams<{ studyId: string }>()
-  const { loadStudy, currentStudy, isLoading } = useViewerStore()
+  const { loadStudy, currentStudy, isLoading, setOrtahncOffline } = useViewerStore()
 
   useEffect(() => {
     if (studyId) loadStudy(studyId)
   }, [studyId, loadStudy])
+
+  useEffect(() => {
+    function handleOrthancOffline() {
+      setOrtahncOffline(true)
+    }
+    window.addEventListener('orthanc:offline', handleOrthancOffline)
+    return () => window.removeEventListener('orthanc:offline', handleOrthancOffline)
+  }, [setOrtahncOffline])
 
   return (
     <div className="flex flex-col h-screen bg-black text-text-primary">
@@ -53,14 +61,14 @@ export default function ViewerPage() {
         <SeriesPanel />
 
         {/* Canvas + slider */}
-        <div className="flex flex-col flex-1 min-w-0 relative">
+        <div className="flex flex-col flex-1 min-w-0 min-h-0 relative">
           {isLoading && !currentStudy ? (
             <div className="flex-1 flex items-center justify-center">
               <Spinner size="lg" />
             </div>
           ) : (
             <>
-              <div className="flex-1 relative">
+              <div className="flex-1 min-h-0 relative">
                 <DicomCanvas />
                 <AnnotationOverlay />
               </div>

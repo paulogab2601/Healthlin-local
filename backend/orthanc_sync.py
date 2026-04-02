@@ -16,11 +16,16 @@ def sync_orthanc_users():
     A conta admin global (ORTHANC_USER/ORTHANC_PASS) é sempre preservada.
     """
     try:
-        # Monta RegisteredUsers: admin global + todos os usuários ativos da interface
-        registered = {config.ORTHANC_USER: config.ORTHANC_PASS}
+        # Monta RegisteredUsers: todos os usuários ativos + admin global por último.
+        # O admin global é inserido APÓS o loop para nunca ser sobrescrito por um
+        # usuário da app que tenha o mesmo council_number (ex: "admin").
+        registered = {}
 
         for user in models.list_users_with_credentials():
             registered[user["council_number"]] = user["password"]
+
+        # Admin global sempre vence — inserido por último
+        registered[config.ORTHANC_USER] = config.ORTHANC_PASS
 
         credentials = {"RegisteredUsers": registered}
 

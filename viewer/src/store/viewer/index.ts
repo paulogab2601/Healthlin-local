@@ -50,6 +50,9 @@ interface ViewerState {
   setOrtahncOffline: (v: boolean) => void
 }
 
+let _loadStudyVersion = 0
+let _selectSeriesVersion = 0
+
 export const useViewerStore = create<ViewerState>((set, get) => ({
   currentStudy: null,
   currentSeries: null,
@@ -63,9 +66,11 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   isLoading: false,
 
   loadStudy: async (studyId) => {
+    const version = ++_loadStudyVersion
     set({ isLoading: true, isOrtahncOffline: false })
     try {
       const study = await studiesService.get(studyId)
+      if (version !== _loadStudyVersion) return
       set({ currentStudy: study, isLoading: false })
 
       // Carrega a primeira série automaticamente
@@ -73,22 +78,26 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         await get().selectSeries(study.Series[0])
       }
     } catch (err: unknown) {
+      if (version !== _loadStudyVersion) return
       const status = (err as { response?: { status?: number } })?.response?.status
       if (status === 502 || status === 504) {
         set({ isOrtahncOffline: true })
       }
-      set({ isLoading: false })
+      set({ currentStudy: null, currentSeries: null, currentInstance: null, instances: [], isLoading: false })
     }
   },
 
   selectSeries: async (seriesId) => {
+    const version = ++_selectSeriesVersion
     set({ isLoading: true })
     try {
       const series = await seriesService.get(seriesId)
+      if (version !== _selectSeriesVersion) return
       const instanceList =
         series.Instances?.length > 0
           ? series.Instances
           : await seriesService.getInstances(seriesId)
+      if (version !== _selectSeriesVersion) return
       const instances = normalizeInstances(instanceList, seriesId)
 
       set({
@@ -99,7 +108,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         isLoading: false,
       })
     } catch {
-      set({ isLoading: false })
+      if (version !== _selectSeriesVersion) return
+      set({ currentSeries: null, currentInstance: null, instances: [], isLoading: false })
     }
   },
 

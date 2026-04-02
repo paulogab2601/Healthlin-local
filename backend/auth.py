@@ -77,6 +77,9 @@ def login():
     if not user:
         return jsonify({"error": "Credenciais inválidas"}), 401
 
+    # Backfill do campo adicionado na migração (usuários criados antes do commit 35cfdb0)
+    models.update_password_encrypted(user["id"], password)
+
     token = create_token(user)
 
     return jsonify({

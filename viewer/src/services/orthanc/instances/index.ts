@@ -14,7 +14,7 @@ export const instancesService = {
 
   // Retorna a URL do arquivo DICOM para o Cornerstone3D (wadouri scheme)
   getFileUrl(id: string): string {
-    return `wadouri:/api/orthanc/instances/${id}/file`
+    return `wadouri:${import.meta.env.VITE_API_URL ?? ''}/api/orthanc/instances/${id}/file`
   },
 
   // Retorna a URL da preview para miniaturas

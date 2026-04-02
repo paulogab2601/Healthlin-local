@@ -1,0 +1,1009 @@
+﻿CONTEXTO TECNICO COMPLETO - HEALTHLIN-LOCAL
+Data da analise: 2026-04-01
+Base analisada: estado atual do workspace local (incluindo alteracoes nao commitadas ja existentes)
+
+====================================================================
+ESCOPO REALMENTE ANALISADO
+====================================================================
+
+Inventario de arquivos do repositorio (excluindo .git e node_modules de terceiros):
+- backend/: 9 arquivos
+- viewer/: 81 arquivos (src, dist, configuracoes e artefatos)
+- python_scripts/: 1 arquivo
+- config-no-local/: 1 arquivo
+- raiz: audit.html, deploy.ps1, login-debug.png, package-lock.json
+
+Cobertura por camada:
+- Frontend fonte (viewer/src): 57 arquivos TS/TSX/CSS/DTS (2579 linhas)
+- Backend fonte/config (backend): 9 arquivos (634 linhas)
+- Dist buildado (viewer/dist): index + bundles JS/CSS hashados (2939 linhas textuais agregadas)
+- Scripts operacionais: deploy.ps1, backend/install.sh, python_scripts/orthanc_clean.py
+- Config externa de exemplo: config-no-local/orthanc-json.txt
+
+Observacao de escopo:
+- viewer/node_modules contem codigo de terceiros (Cornerstone, React, Vite, etc). Foi tratado como dependencia externa, nao como codigo autoral do projeto.
+
+====================================================================
+1) VISAO GERAL DO SISTEMA (ARQUITETURA)
+====================================================================
+
+Topologia logica:
+1. Browser (SPA React/Vite) - UI de login, dashboard, admin e viewer DICOM.
+2. Backend Flask - API de autenticacao, autorizacao, proxy autenticado para Orthanc e servidor de arquivos do frontend buildado.
+3. SQLite - persistencia de usuarios locais da aplicacao (identidade, role, hash e senha criptografada).
+4. Orthanc - repositorio PACS/DICOM externo consumido via proxy backend.
+5. Systemd/OS - processo do backend, variaveis de ambiente e reinicio do Orthanc no sync de credenciais.
+
+Composicao por modulo:
+- Entrypoint backend: backend/app.py
+  - Cria app Flask com CORS em /api/*.
+  - Registra blueprints auth e proxy.
+  - Inicializa DB (models.init_db).
+  - Exponibiliza /api/health.
+  - Faz SPA fallback para FRONTEND_DIST.
+  - Em runtime principal: cria admin inicial e roda sync de usuarios no Orthanc.
+
+- Autenticacao/autorizacao: backend/auth.py
+  - JWT HS256 com exp de 12h.
+  - Decorators require_auth e require_admin.
+  - Rotas de login, me, troca de senha e gestao de usuarios (admin).
+
+- Persistencia: backend/models.py
+  - SQLite com tabela users.
+  - Hash de senha com bcrypt.
+  - password_encrypted com Fernet derivada de JWT_SECRET.
+  - Regras de desativacao (admin principal, auto-desativacao, lockout de ultimo admin).
+
+- Proxy Orthanc: backend/proxy.py
+  - Rotas /api/orthanc/* autenticadas por JWT.
+  - Repassa para ORTHANC_URL via requests + Basic Auth.
+  - Credencial preferencial: do usuario logado (council_number + senha descriptografada).
+  - Fallback: ORTHANC_USER/ORTHANC_PASS globais.
+
+- Sincronizacao Orthanc: backend/orthanc_sync.py
+  - Gera/reescreve arquivo credentials.json do Orthanc.
+  - Insere todos usuarios ativos + admin global.
+  - Reinicia servico orthanc via systemctl.
+
+- Frontend React: viewer/src
+  - Router com rotas lazy (dashboard, viewer, admin users).
+  - Zustand para 3 dominos de estado: auth, dashboard, viewer.
+  - Axios para API geral + interceptors (JWT/erros).
+  - Cornerstone3D para renderizacao DICOM com loader wadouri.
+
+Padroes observados:
+- Backend usa separacao por modulos (config, models, auth blueprint, proxy blueprint), sem ORM.
+- Frontend usa separacao por tipo de modulo (pages/components/hooks/services/store/types).
+- Estado global distribuido em stores Zustand por dominio.
+- Integracao HTTP centralizada em services.
+
+Ausencias arquiteturais relevantes:
+- Sem camada formal de servico no backend (regra de negocio distribuida entre rota e models).
+- Sem framework de migracao de banco (alter table manual no init_db).
+- Sem suite de testes implementada (pastas de teste existem, mas sem arquivos).
+- Sem esquema de validacao de payload (ex.: pydantic/zod) no backend/frontend.
+
+====================================================================
+2) DIAGRAMA LOGICO TEXTUAL (FLUXO END-TO-END)
+====================================================================
+
+Fluxo macro:
+[Browser React]
+  -> POST /api/auth/login
+[Flask auth blueprint]
+  -> models.authenticate (SQLite + bcrypt)
+  -> JWT (HS256)
+  <- token + user
+[Browser]
+  -> localStorage.healthlin_token
+  -> GET /api/auth/me (hidrata sessao)
+
+[Dashboard]
+  -> GET /api/orthanc/patients
+[Flask proxy]
+  -> requests -> ORTHANC_URL/patients (Basic Auth via _get_orthanc_auth)
+  <- lista IDs
+[Browser]
+  -> N chamadas GET /api/orthanc/patients/{id}
+
+[Selecao de estudo]
+  -> GET /api/orthanc/studies/{studyId}
+  -> GET /api/orthanc/series/{seriesId}
+  -> (fallback opcional) GET /api/orthanc/series/{seriesId}/instances
+
+[Viewer DICOM]
+  imageId = wadouri:{VITE_API_URL}/api/orthanc/instances/{instanceId}/file
+  -> Cornerstone DICOM loader (XHR com Authorization Bearer)
+  -> Flask proxy /api/orthanc/instances/{instanceId}/file
+  -> Orthanc /instances/{instanceId}/file (Basic Auth)
+  <- bytes DICOM
+  <- viewport.setStack([imageId],0)
+  -> render no canvas
+
+[Metadados]
+  -> GET /api/orthanc/instances/{instanceId}/simplified-tags
+  -> render painel lateral
+
+Fluxo de credenciais Orthanc:
+[CRUD usuario / troca senha]
+  -> auth._sync_orthanc() (thread)
+  -> orthanc_sync.sync_orthanc_users()
+  -> escreve ORTHANC_CREDENTIALS_PATH
+  -> systemctl restart orthanc
+
+====================================================================
+3) EXPLICACAO DETALHADA DE CADA CAMADA
+====================================================================
+
+--------------------------------------------------------------------
+3.1 FRONTEND (React + Vite + Zustand + Cornerstone)
+--------------------------------------------------------------------
+
+3.1.1 Bootstrap e roteamento
+- viewer/src/main.tsx
+  - Renderiza <App /> dentro de React.StrictMode.
+  - Importa reset.css e dark.css.
+
+- viewer/src/App.tsx
+  - BrowserRouter com rotas:
+    - /login
+    - /dashboard (RequireAuth)
+    - /viewer/:studyId (RequireAuth)
+    - /admin/users (RequireAuth + RequireAdmin)
+    - / e * redirecionam para /dashboard
+  - AppBoot executa loadMe() ao montar para hidratar usuario antes de resolver permissao de rota.
+  - Lazy-loading de pages com Suspense fallback Spinner.
+
+3.1.2 Gestao de estado
+
+A) Auth store (viewer/src/store/auth/index.ts)
+Estado:
+- user, token, isAuthenticated, isDefaultPassword, isHydrating, isLoading, error
+Persistencia:
+- token em localStorage com chave healthlin_token
+Fluxos:
+- login:
+  - chama authService.login
+  - salva token localStorage
+  - calcula isDefaultPassword quando login = MATRICULA/admin/admin123
+- loadMe:
+  - se token existe, chama /api/auth/me
+  - em falha, faz logout local e encerra hidratacao
+- logout:
+  - remove token localStorage e limpa estado
+- changePassword:
+  - chama /api/auth/change-password
+  - limpa flag isDefaultPassword
+
+B) Dashboard store (viewer/src/store/dashboard/index.ts)
+Estado:
+- patients, studies, selectedPatientId, filters, searchQuery, isLoading, isOrtahncOffline
+Fluxos:
+- fetchPatients:
+  - GET /api/orthanc/patients (IDs)
+  - Promise.all com GET /api/orthanc/patients/{id} (N+1)
+  - mapeia 502/504 para isOrtahncOffline=true
+- fetchStudies(patientId):
+  - GET /api/orthanc/patients/{id}/studies
+- filtros e busca:
+  - setSearchQuery + setFilters
+
+C) Viewer store (viewer/src/store/viewer/index.ts)
+Estado:
+- currentStudy/currentSeries/currentInstance
+- instances[]
+- currentFrame
+- windowLevel
+- activeTool
+- annotations[]
+- isOrtahncOffline
+- isLoading
+Fluxos:
+- loadStudy(studyId):
+  - GET /api/orthanc/studies/{id}
+  - carrega automaticamente primeira serie
+  - controle de concorrencia com _loadStudyVersion
+- selectSeries(seriesId):
+  - GET /api/orthanc/series/{id}
+  - usa series.Instances; se vazio, fallback GET /series/{id}/instances
+  - normaliza lista (aceita string ou objeto Instance)
+  - controle de concorrencia com _selectSeriesVersion
+- setFrame(frame):
+  - seleciona instancia por indice no array instances
+
+3.1.3 Servicos HTTP
+
+- viewer/src/services/api.ts
+  - axios baseURL = VITE_API_URL ?? ''
+  - request interceptor:
+    - injeta Authorization: Bearer {healthlin_token}
+  - response interceptor:
+    - status 401: remove token e redireciona /login
+    - status 502/504: dispara evento global orthanc:offline
+
+- viewer/src/services/auth/authService.ts
+  - /api/auth/login, /me, /change-password, /users, /users/{id}, /users/{id}/reactivate
+
+- viewer/src/services/orthanc/*
+  - patients/list/get/getStudies
+  - studies/list/get/getSeries/find
+  - series/get/getInstances
+  - instances/get/getSimplifiedTags/getFileUrl/getPreviewUrl
+
+3.1.4 Integracao com Cornerstone / Viewer
+
+- viewer/src/hooks/viewer/useCornerstone.ts
+  - singleton por variaveis de modulo:
+    - _initialized, _engine, _toolGroup, _cleanupRegistered
+  - inicializacao assinc:
+    1) import @cornerstonejs/core
+    2) import init de @cornerstonejs/tools
+    3) import @cornerstonejs/dicom-image-loader + dicom-parser
+    4) injeta externals (cornerstone/dicomParser)
+    5) cornerstone.init + toolsInit
+    6) webWorkerManager.initialize
+    7) configure(beforeSend) para injetar Bearer token no XHR do loader
+    8) cria RenderingEngine('healthlin-engine')
+    9) registra tools (Pan, Zoom, WindowLevel, Length, Angle, RectangleROI)
+    10) cria/obtem ToolGroup 'healthlin-tools'
+    11) ativa WindowLevel por padrao
+  - cleanup no beforeunload:
+    - terminate workers
+    - destroy toolgroup
+    - destroy engine
+
+- viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx
+  - lifecycle do viewport STACK id healthlin-viewport
+  - habilita elemento via engine.enableElement + resize
+  - observer de resize
+  - ao trocar currentInstance:
+    - imageId = instancesService.getFileUrl(instance.ID)
+    - viewport.setStack([imageId],0)
+    - viewport.render()
+  - estados de erro:
+    - initError (cornerstone)
+    - renderError textual
+    - isOrtahncOffline (overlay ConnectionError)
+
+- viewer/src/components/viewer/toolbar/Toolbar.tsx
+  - muda activeTool no store
+  - chama activateTool(toolMode) no hook useCornerstone
+
+- viewer/src/components/viewer/metadata-panel/MetadataPanel.tsx
+  - GET /api/orthanc/instances/{id}/simplified-tags por instancia atual
+  - render de tags selecionadas com formatacao
+
+- viewer/src/components/viewer/image-panel/ImagePanel.tsx
+  - slider de frame baseado em indice do array instances
+
+3.1.5 Dashboard e administracao
+
+- DashboardPage compoe Header + Sidebar + SearchBar + Filters + PatientList + ExamList.
+- SearchBar aplica debounce 300ms e atalho "/".
+- useStudies filtra por modality e por data DICOM (YYYYMMDD) comparada com filtros YYYY-MM-DD normalizados.
+- ExamList navega para /viewer/{studyID}.
+- AdminUsersPage:
+  - lista usuarios via /api/auth/users
+  - cria/desativa/reativa usuarios
+  - respeita regra visual de protecao do id=1
+
+3.1.6 Configuracao de build/runtime frontend
+
+- viewer/vite.config.ts
+  - alias @ -> src
+  - alias @icr/polyseg-wasm -> src/stubs/polyseg-stub.ts
+  - dev server proxy /api -> http://localhost:5000
+  - build outDir=dist, target=esnext
+  - manualChunks: agrupa @cornerstonejs/tools em chunk proprio
+  - optimizeDeps include @cornerstonejs/tools; exclude @cornerstonejs/dicom-image-loader
+
+- Variavel de ambiente frontend em uso:
+  - VITE_API_URL
+    - usada em axios baseURL
+    - usada na construcao wadouri para arquivo DICOM
+
+3.1.7 Artefatos frontend
+
+- viewer/dist/ contem bundles hashados atuais:
+  - index-kbMl7cPa.js
+  - cornerstone-tools-CEyoSr9D.js
+  - cornerstoneDICOMImageLoader.bundle.min-Tov9u9wm.js
+  - DashboardPage-*.js, ViewerPage-*.js, AdminUsersPage-*.js etc.
+
+- viewer/healthlin-dist.tgz contem snapshot anterior de dist com hashes diferentes.
+
+3.1.8 Testes frontend
+
+- Pastas existentes:
+  - viewer/tests/e2e/auth, dashboard, viewer
+  - viewer/tests/unit/components, hooks, services
+- Nao ha arquivos de teste dentro das pastas.
+
+--------------------------------------------------------------------
+3.2 BACKEND (Flask + SQLite + Proxy Orthanc)
+--------------------------------------------------------------------
+
+3.2.1 Startup da aplicacao
+
+Arquivo: backend/app.py
+Sequencia:
+1) create_app()
+   - Flask(static_folder=None)
+   - CORS apenas em /api/*
+   - register_blueprint(auth_bp)
+   - register_blueprint(proxy_bp)
+   - models.init_db()
+   - rota /api/health
+   - fallback SPA para FRONTEND_DIST
+2) __main__
+   - create_initial_admin() se tabela users vazia
+   - orthanc_sync.sync_orthanc_users()
+   - app.run(host=config.HOST, port=config.PORT, debug=False)
+
+Create_initial_admin:
+- cria usuario fixo inicial:
+  - name: Administrador
+  - council_type: MATRICULA
+  - council_number: admin
+  - senha: admin123
+  - role: admin
+- executa somente quando COUNT(users)=0.
+
+3.2.2 Configuracao backend
+
+Arquivo: backend/config.py
+Variaveis:
+- ORTHANC_URL (default: http://localhost:8042)
+- ORTHANC_USER (default: admin)
+- ORTHANC_PASS (default: sua_senha)
+- ORTHANC_CREDENTIALS_PATH (default: /etc/orthanc/credentials.json)
+- JWT_SECRET (default: 332291180@*p)
+- JWT_EXPIRATION_HOURS = 12
+- DB_PATH (default: /opt/healthlin/backend/healthlin.db)
+- HOST = 0.0.0.0
+- PORT = 5000
+
+Regra de startup:
+- Se FLASK_ENV=production e JWT_SECRET nao definido no ambiente, levanta RuntimeError.
+
+3.2.3 Autenticacao e permissao
+
+Arquivo: backend/auth.py
+
+Token:
+- create_token(user): JWT HS256 com payload
+  - user_id, name, role, council_type
+  - exp UTC agora + 12h
+
+Decorators:
+- require_auth:
+  - le Authorization Bearer
+  - decode JWT com JWT_SECRET
+  - injeta g.user
+  - retorna 401 para token ausente/expirado/invalido
+- require_admin:
+  - require_auth + role == admin
+  - retorna 403 caso contrario
+
+Rotas:
+- POST /api/auth/login
+  - valida payload
+  - models.authenticate(council_type, council_number, password)
+  - se sucesso:
+    - models.update_password_encrypted(user_id, password) (backfill)
+    - retorna token + user
+  - falhas:
+    - 400 dados ausentes/campos
+    - 401 credenciais invalidas
+
+- GET /api/auth/me
+  - require_auth
+  - retorna dados do usuario ativo
+  - 404 se usuario nao encontrado
+
+- GET /api/auth/users (admin)
+- POST /api/auth/users (admin)
+  - valida role em admin|medico|tecnico
+  - create_user no models
+  - sucesso 201
+  - conflito 409
+  - dispara _sync_orthanc async
+
+- DELETE /api/auth/users/{id} (admin)
+  - models.deactivate_user
+  - retorna 403 para violacao de regra de negocio
+  - dispara _sync_orthanc async
+
+- PUT /api/auth/users/{id}/reactivate (admin)
+  - reativa e dispara _sync_orthanc
+
+- PUT /api/auth/change-password
+  - require_auth
+  - valida campos e delega a models.change_password
+  - sucesso dispara _sync_orthanc
+
+Sync assinc:
+- _sync_orthanc() abre thread daemon para sync_orthanc_users.
+
+3.2.4 Modelo de dados (SQLite)
+
+Arquivo: backend/models.py
+
+Tabela users:
+- id INTEGER PK AUTOINCREMENT
+- name TEXT NOT NULL
+- council_type TEXT CHECK in ('CRM','CRTR','MATRICULA')
+- council_number TEXT NOT NULL
+- password_hash TEXT NOT NULL
+- password_encrypted TEXT
+- role TEXT CHECK in ('admin','medico','tecnico') default 'medico'
+- active INTEGER default 1
+- created_at TEXT default datetime('now')
+- UNIQUE(council_type, council_number)
+
+Migracao embutida:
+- init_db tenta ALTER TABLE users ADD COLUMN password_encrypted.
+
+Senha:
+- password_hash: bcrypt
+- password_encrypted: Fernet
+  - chave derivada deterministicamente de SHA256(JWT_SECRET)
+
+Funcoes relevantes:
+- authenticate: verifica active=1 + bcrypt
+- get_user_credentials(user_id): devolve (council_number, senha_plain) descriptografada
+- list_users_with_credentials(): usuarios ativos com senha plaintext para sync Orthanc
+- change_password:
+  - valida senha atual
+  - exige len(new_password) >= 8
+  - atualiza hash + encrypted
+
+Regras de desativacao:
+- id=1 nao pode ser desativado
+- usuario nao pode desativar a si proprio
+- impede desativar ultimo admin ativo (alem do id=1)
+
+3.2.5 Proxy para Orthanc
+
+Arquivo: backend/proxy.py
+
+Blueprint:
+- prefixo /api/orthanc
+- todas rotas com require_auth
+
+Autenticacao com Orthanc:
+- _get_orthanc_auth()
+  - tenta credencial do usuario logado via models.get_user_credentials(g.user.user_id)
+  - fallback: ORTHANC_USER/ORTHANC_PASS globais
+
+Mecanica de proxy:
+- proxy_request(orthanc_path)
+  - monta URL final: ORTHANC_URL + path + querystring
+  - filtra headers de request (nao repassa host, authorization, content-length, transfer-encoding)
+  - envia requests.request(method,url,headers,data,auth,timeout=30,stream=True)
+  - filtra headers de resposta (remove content-encoding, transfer-encoding, content-length, www-authenticate)
+  - converte 401 do Orthanc para 502 JSON
+  - repassa status original para outros casos
+  - ConnectionError -> 502
+  - Timeout -> 504
+
+Conjunto de rotas expostas:
+- GET /system
+- GET /statistics
+- GET /patients
+- GET /patients/{id}
+- GET /patients/{id}/studies
+- GET /studies
+- GET /studies/{id}
+- GET /studies/{id}/series
+- GET /series
+- GET /series/{id}
+- GET /series/{id}/instances
+- GET /instances/{id}
+- GET /instances/{id}/preview
+- GET /instances/{id}/file
+- GET /instances/{id}/frames/{frame}/preview
+- GET /instances/{id}/simplified-tags
+- GET /instances/{id}/tags
+- POST /tools/find
+- POST /tools/lookup
+
+Observacao de uso real pelo frontend atual:
+- Consumidos: patients/studies/series/instances + simplified-tags + file
+- Nao consumidos no frontend atual: system, statistics, tools/lookup, tags, previews
+
+3.2.6 Sync de usuarios com Orthanc
+
+Arquivo: backend/orthanc_sync.py
+
+Fluxo:
+1) consulta models.list_users_with_credentials()
+2) monta dict RegisteredUsers com council_number => senha
+3) sobrescreve admin global no final (ORTHANC_USER => ORTHANC_PASS)
+4) grava JSON em ORTHANC_CREDENTIALS_PATH
+5) executa systemctl restart orthanc
+
+Retorno:
+- (True, "Sync concluido")
+- (False, mensagem de erro) em excecoes
+
+Acoplamento operacional:
+- Necessita permissao de escrita em /etc/orthanc/credentials.json
+- Necessita comando systemctl funcional para orthanc
+
+3.2.7 Execucao e deploy
+
+Arquivo: backend/healthlin-backend.service
+- User=root
+- WorkingDirectory=/opt/healthlin/backend
+- ExecStart=/opt/healthlin/venv/bin/python app.py
+- Restart=always
+- Dependencia declarada de orthanc.service
+- Injeta env vars ORTHANC_*, JWT_SECRET, FLASK_ENV, DB_PATH, FRONTEND_DIST
+
+Arquivo: backend/install.sh
+- instala python3-pip/venv
+- copia backend para /opt/healthlin/backend
+- cria venv /opt/healthlin/venv
+- pip install -r requirements.txt
+- instala e inicia service
+
+Arquivo: deploy.ps1
+- build frontend local (npm ci + npm run build)
+- cria staging remoto /tmp/healthlin-deploy-XXXXXX
+- envia dist + arquivos backend por scp
+- script remoto copia para /opt/healthlin/frontend/dist e /opt/healthlin/backend
+- atualiza unit file
+- pip install
+- systemctl restart healthlin-backend
+- healthcheck em /api/health (ate 15s)
+
+--------------------------------------------------------------------
+3.3 INTEGRACAO ORTHANC (NIVEL BAIXO)
+--------------------------------------------------------------------
+
+3.3.1 Como o sistema autentica no Orthanc
+
+Camada 1 (usuario app -> backend):
+- Browser envia Bearer JWT ao backend (/api/orthanc/*).
+- Backend valida JWT em require_auth e identifica g.user.user_id.
+
+Camada 2 (backend -> Orthanc):
+- Proxy chama _get_orthanc_auth().
+- Tentativa primaria:
+  - models.get_user_credentials(user_id)
+  - retorna (council_number, senha_plain descriptografada)
+- Fallback:
+  - (ORTHANC_USER, ORTHANC_PASS)
+- Requests para Orthanc usam Basic Auth nativo do requests(auth=tuple).
+
+3.3.2 Como as requisicoes sao feitas (proxy)
+
+- Path frontend: /api/orthanc/... (sempre no backend Flask)
+- Path backend->Orthanc: ORTHANC_URL + orthanc_path
+- Query string preservada
+- Header Authorization do cliente nao e repassado ao Orthanc
+- Conteudo binario DICOM de /instances/{id}/file retorna no corpo da resposta Flask
+
+3.3.3 Fluxo de carregamento DICOM no viewer
+
+1) Viewer seleciona instancia corrente (currentInstance.ID)
+2) instancesService.getFileUrl monta imageId:
+   - wadouri:{VITE_API_URL}/api/orthanc/instances/{id}/file
+3) Cornerstone DICOM loader resolve imageId wadouri
+4) beforeSend do loader injeta Bearer JWT no XHR
+5) Flask valida JWT (require_auth)
+6) Proxy chama Orthanc /instances/{id}/file com Basic Auth
+7) bytes retornam ao loader
+8) viewport.setStack([imageId],0)
+9) viewport.render()
+
+3.3.4 Construcao das URLs wadouri
+
+Implementacao:
+- viewer/src/services/orthanc/instances/index.ts
+  getFileUrl(id) => `wadouri:${VITE_API_URL ?? ''}/api/orthanc/instances/${id}/file`
+
+Comportamentos observaveis:
+- Com VITE_API_URL vazio, bundle atual compila para `wadouri:/api/orthanc/instances/{id}/file`.
+- Com VITE_API_URL definido, compila para `wadouri:https://host.../api/orthanc/...`.
+
+3.3.5 Dependencia entre credenciais do app e do Orthanc
+
+Dependencia estrutural central:
+- A senha do usuario da aplicacao e a mesma senha usada para conta Basic Auth no Orthanc (via sync de RegisteredUsers).
+- create_user / change_password / deactivate / reactivate disparam sync_orthanc.
+- Startup do backend tambem dispara sync_orthanc.
+
+Consequencia de acoplamento:
+- Estado de autenticacao no Orthanc depende diretamente de consistencia de:
+  - DB users (password_encrypted)
+  - JWT_SECRET (chave de descriptografia Fernet)
+  - escrita em ORTHANC_CREDENTIALS_PATH
+  - restart do servico orthanc
+
+====================================================================
+4) FLUXO COMPLETO DO VIEWER (PASSO A PASSO TECNICO)
+====================================================================
+
+PASSO 1 - Login do usuario
+Entrada:
+- LoginForm envia council_type, council_number, password.
+
+Caminho:
+- frontend: useAuthStore.login -> authService.login -> POST /api/auth/login
+- backend:
+  - valida payload
+  - models.authenticate (bcrypt)
+  - update_password_encrypted (backfill)
+  - create_token
+  - retorna token + user
+
+Erros possiveis:
+- 400: payload ausente/incompleto
+- 401: credenciais invalidas
+- falha DB: excecao interna (nao tratada com status especifico no codigo)
+
+Dependencias:
+- tabela users inicializada
+- password_hash valido
+- JWT_SECRET disponivel
+
+PASSO 2 - Armazenamento de token
+Entrada:
+- resposta login com token
+
+Caminho:
+- localStorage.setItem('healthlin_token', token)
+- estado auth store atualizado
+- AppBoot/loadMe usa token para re-hidratar sessao
+
+Erros possiveis:
+- token invalido/expirado em loadMe -> logout local
+- inconsistencias de estado se localStorage for limpo externamente
+
+Dependencias:
+- localStorage do browser
+- /api/auth/me funcional
+
+PASSO 3 - Acesso ao viewer
+Entrada:
+- navegacao para /viewer/:studyId via ExamList
+
+Caminho:
+- Route protegida por RequireAuth
+- ViewerPage chama loadStudy(studyId)
+- registra listener global orthanc:offline
+
+Erros possiveis:
+- sem auth -> redirect /login
+- estudo inexistente/erro proxy -> currentStudy null e possivel estado offline
+
+Dependencias:
+- token JWT valido
+- studyId valido
+- store viewer consistente
+
+PASSO 4 - Requisicao ao backend
+Entrada:
+- loadStudy/selectSeries/metadata/file
+
+Caminho:
+- axios com interceptor Bearer para endpoints REST
+- DICOM loader com beforeSend Bearer para endpoint /file
+
+Erros possiveis:
+- 401 backend: interceptor axios remove token e redireciona /login
+- 502/504 backend: evento orthanc:offline
+- falha de rede: erros propagados para stores/componentes
+
+Dependencias:
+- VITE_API_URL/baseURL
+- interceptors ativos
+- hook useCornerstone inicializado
+
+PASSO 5 - Proxy ate o Orthanc
+Entrada:
+- endpoint /api/orthanc/* no Flask
+
+Caminho:
+- require_auth valida JWT
+- _get_orthanc_auth obtem credencial do usuario (ou fallback global)
+- requests.request para ORTHANC_URL
+
+Erros possiveis:
+- credencial Orthanc invalida -> 401 Orthanc convertido para 502
+- Orthanc offline -> 502
+- timeout Orthanc -> 504
+- falha de decrypt password_encrypted -> fallback para credencial global
+
+Dependencias:
+- ORTHANC_URL acessivel
+- credenciais sincronizadas
+- DB com password_encrypted legivel
+
+PASSO 6 - Retorno da imagem
+Entrada:
+- resposta binaria /instances/{id}/file
+
+Caminho:
+- proxy devolve resp.content ao browser
+- Cornerstone loader recebe buffer DICOM
+
+Erros possiveis:
+- resposta vazia/corrompida
+- status HTTP nao-200
+- cabecalhos de conteudo alterados pelo proxy
+
+Dependencias:
+- caminho /instances/{id}/file existente no Orthanc
+- compatibilidade loader/arquivo DICOM
+
+PASSO 7 - Renderizacao no Cornerstone
+Entrada:
+- imageId wadouri
+
+Caminho:
+- DicomCanvas garante viewport STACK
+- viewport.setStack([imageId],0)
+- viewport.render()
+- MetadataPanel carrega simplified-tags em paralelo
+
+Erros possiveis:
+- engine/toolgroup nao inicializados
+- viewport indisponivel apos remount/resize
+- erro no setStack/render
+- tags de metadado falham (painel mostra erro)
+
+Dependencias:
+- useCornerstone completou init
+- elemento DOM presente e com dimensao
+- token Bearer injetado no loader
+
+====================================================================
+5) COMO O ORTHANC E INTEGRADO (NIVEL BAIXO)
+====================================================================
+
+A. Contrato de autenticacao
+- JWT protege entrada do backend.
+- Basic Auth protege backend->Orthanc.
+- Mapeamento identidade app->Orthanc:
+  - username Orthanc = council_number
+  - password Orthanc = senha da aplicacao (descriptografada)
+
+B. Sync de credenciais
+- Trigger de sync:
+  - startup backend
+  - create user
+  - deactivate user
+  - reactivate user
+  - change password
+- Efeito:
+  - rewrite total de RegisteredUsers
+  - restart orthanc
+
+C. Requisicao de imagem
+- URL externa de consumo no frontend:
+  - /api/orthanc/instances/{id}/file
+- URL interna no Orthanc:
+  - {ORTHANC_URL}/instances/{id}/file
+- Transporte:
+  - backend usa requests com stream=True, resposta final via resp.content
+
+D. Endpoints Orthanc proxied
+- Leitura de pacientes, estudos, series, instancias
+- Busca tools/find e tools/lookup
+- Tags simplificadas e completas
+- Preview por instancia/frame
+
+E. Integracao DICOMweb
+- config-no-local/orthanc-json.txt habilita DicomWeb/EnableWado.
+- fluxo do app atual usa endpoints REST de instancia (/instances/{id}/file), nao usa DicomWeb/WadoRoot diretamente.
+
+====================================================================
+6) LISTA DE PONTOS FRAGEIS ESTRUTURAIS
+====================================================================
+
+1. Chave JWT e chave de criptografia de senha acopladas
+- models._get_cipher deriva Fernet de JWT_SECRET.
+- Rotacao de JWT_SECRET altera capacidade de descriptografar password_encrypted existente.
+- Impacta autenticacao Orthanc baseada em credenciais de usuario.
+
+2. Acoplamento forte identidade app <-> credencial Orthanc
+- Senha da aplicacao e propagada para Orthanc.
+- Mudancas de usuario dependem de sync + restart do Orthanc.
+
+3. Sync Orthanc desacoplado da resposta HTTP
+- auth._sync_orthanc roda em thread daemon, sem bloqueio do request.
+- API pode retornar sucesso de CRUD/troca de senha antes de confirmar aplicacao no Orthanc.
+
+4. useCornerstone com singleton global mutavel em modulo
+- _initialized/_engine/_toolGroup compartilham estado global entre componentes.
+- lifecycle depende de beforeunload para cleanup final.
+
+5. DicomCanvas concentra responsabilidades de infraestrutura + UI
+- gerencia viewport lifecycle, resize, carga DICOM, estados offline, overlay de erro/loading.
+
+6. Dependencia do fallback global de credencial Orthanc
+- se get_user_credentials falha, proxy usa ORTHANC_USER/ORTHANC_PASS global.
+- muda semantica de autenticacao por usuario para credencial compartilhada.
+
+7. Dependencia de privilegio root no processo backend
+- service configurado com User=root.
+- escrita em /etc/orthanc/credentials.json e restart do Orthanc assumem esse contexto.
+
+8. Dist artefatos duplicados em formatos diferentes
+- viewer/dist atual e viewer/healthlin-dist.tgz antigo coexistem com hashes distintos.
+- coexistencia adiciona acoplamento operacional no processo de release.
+
+9. Camada de dominio sem fronteira formal
+- regras em rotas + models + stores frontend, sem contrato central de dominio.
+
+10. Nomenclatura de estado offline com typo consolidado
+- isOrtahncOffline existe em types/stores/hooks/componentes.
+- impacta legibilidade transversal do dominio Orthanc.
+
+====================================================================
+7) LISTA DE DEPENDENCIAS CRITICAS
+====================================================================
+
+Dependencias externas de runtime:
+1. Orthanc HTTP em ORTHANC_URL (default localhost:8042)
+2. Servico systemd "orthanc" para restart no sync
+3. Arquivo de credenciais Orthanc (ORTHANC_CREDENTIALS_PATH)
+4. SQLite acessivel em DB_PATH
+5. Browser APIs: localStorage, ResizeObserver
+
+Dependencias de seguranca/autenticacao:
+1. JWT_SECRET (assinatura JWT)
+2. JWT_SECRET (derivacao Fernet para password_encrypted)
+3. Bearer token para /api/*
+4. Basic Auth para Orthanc
+
+Dependencias de frontend DICOM:
+1. @cornerstonejs/core
+2. @cornerstonejs/tools
+3. @cornerstonejs/dicom-image-loader
+4. dicom-parser
+5. WebWorkers do dicom image loader
+
+Dependencias de build/deploy:
+1. Node/NPM para build frontend
+2. Python venv + pip para backend
+3. ssh/scp no deploy.ps1
+4. systemctl para gerenciar healthlin-backend e orthanc
+
+Dependencias de configuracao:
+1. FRONTEND_DIST (backend serving SPA)
+2. VITE_API_URL (axios + wadouri imageId)
+3. ORTHANC_USER/ORTHANC_PASS fallback
+
+====================================================================
+8) PONTOS ONDE BUGS SAO MAIS PROVAVEIS (SEM PROPOSTA DE CORRECAO)
+====================================================================
+
+1. Corridas assinc no ciclo viewer
+- loadStudy/selectSeries em paralelo (mitigado por version counters, mas ainda sensivel a troca rapida de rota/serie/frame).
+
+2. Inicializacao/reativacao do viewport
+- enableElement/disableElement + resize + remount em DicomCanvas tem varios caminhos de estado.
+
+3. Fronteira axios vs loader DICOM
+- REST usa interceptor axios; arquivo DICOM usa XHR do loader.
+- duas pilhas de tratamento de erro/autenticacao coexistem.
+
+4. MetadataPanel sem controle de concorrencia
+- requests de tags podem retornar fora de ordem em troca rapida de instancia.
+
+5. Sincronizacao de credenciais Orthanc
+- depende de IO de arquivo + restart de servico externo.
+- falhas podem nao refletir imediatamente na UX da API que acionou o sync.
+
+6. Dependencia de string-path no ecossistema DICOM
+- imageId wadouri, route Flask, path proxy e path Orthanc precisam permanecer consistentes.
+
+7. Fallback de auth do proxy
+- falha de credencial por usuario redireciona para credencial global.
+- comportamento final depende do estado de ORTHANC_USER/ORTHANC_PASS.
+
+8. Configuracao de ambiente divergente entre dev/prod
+- frontend pode rodar com baseURL vazio (proxy Vite) e backend em host diferente em producao.
+- getFileUrl de DICOM usa composicao separada de axios.
+
+9. Ausencia de testes automatizados no repositrio
+- pastas de teste existem, mas sem casos executaveis.
+- regressao funcional depende apenas de validacao manual.
+
+10. Artefatos de build versionados simultaneamente
+- dist atual e tarball antigo com hashes diferentes aumentam superficie de confusao operacional.
+
+====================================================================
+MAPEAMENTO DE CONFIGURACAO (VARIAVEIS, FALLBACK, IMPACTO)
+====================================================================
+
+Backend
+- ORTHANC_URL
+  - default: http://localhost:8042
+  - uso: destino do proxy
+  - impacto se incorreto: todo /api/orthanc falha (502/504)
+
+- ORTHANC_USER / ORTHANC_PASS
+  - default: admin / sua_senha (em config.py)
+  - service atual sobrescreve com admin / 1234
+  - uso: fallback de auth no proxy + conta preservada no sync
+  - impacto se incorreto: fallback quebra e sync gera credencial invalida
+
+- ORTHANC_CREDENTIALS_PATH
+  - default: /etc/orthanc/credentials.json
+  - uso: escrita do arquivo no sync
+  - impacto se incorreto/sem permissao: sync falha, credenciais desatualizadas
+
+- JWT_SECRET
+  - default: 332291180@*p
+  - uso: assinatura JWT + chave Fernet derivada
+  - impacto se divergente/rotacionado: token invalido e/ou decrypt de password_encrypted falha
+
+- JWT_EXPIRATION_HOURS
+  - valor fixo: 12
+  - impacto: expira sessao de auth nesse intervalo
+
+- DB_PATH
+  - default: /opt/healthlin/backend/healthlin.db
+  - uso: conexao SQLite
+  - impacto se incorreto/sem escrita: autenticao e gestao de usuarios indisponiveis
+
+- FRONTEND_DIST
+  - default: ../viewer/dist absoluto
+  - service: /opt/healthlin/frontend/dist
+  - uso: fallback SPA no Flask
+  - impacto se incorreto: API sobe, frontend nao e servido (404 no catch-all)
+
+- FLASK_ENV
+  - uso: gate de seguranca para JWT_SECRET em producao
+
+Frontend
+- VITE_API_URL
+  - default: ''
+  - uso 1: axios baseURL
+  - uso 2: URL wadouri do arquivo DICOM
+  - impacto se incorreto: chamadas API e/ou carregamento DICOM falham
+
+====================================================================
+MAPEAMENTO DE RESPONSABILIDADES (CLAREZA/AMBIGUIDADE)
+====================================================================
+
+Responsabilidades claras:
+- auth.py: fronteira JWT e CRUD de usuarios
+- proxy.py: ponte HTTP app->Orthanc
+- models.py: persistencia e regras de usuario
+- stores Zustand: estado por dominio (auth/dashboard/viewer)
+
+Responsabilidades sobrepostas:
+- DicomCanvas acumula infraestrutura de render + UX de erro/loading
+- Gestao de offline Orthanc aparece em interceptor axios, stores e componentes
+- Regra de credencial Orthanc distribui-se entre models + proxy + auth + orthanc_sync
+
+====================================================================
+ANEXO - ARQUIVOS AUXILIARES E STATUS
+====================================================================
+
+1. audit.html
+- Relatorio HTML de auditoria tecnica anterior no repositorio.
+
+2. login-debug.png
+- Artefato de imagem de depuracao, sem referencia no codigo fonte.
+
+3. viewer/healthlin-dist.tgz
+- Pacote de dist anterior (hashes diferentes do viewer/dist atual).
+
+4. Diretorios vazios no frontend
+- viewer/src/contexts/* (sem arquivos)
+- viewer/src/assets/* (sem arquivos)
+- viewer/public/assets/* (sem arquivos)
+
+5. Testes
+- Estrutura de pastas criada, sem arquivos de teste implementados.
+
+====================================================================
+FIM DO CONTEXTO
+====================================================================

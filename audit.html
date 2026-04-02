@@ -1,21 +1,24 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Healthlin - Auditoria de Achados</title>
+  <title>Healthlin - Auditoria Tecnica</title>
   <style>
     :root {
       --bg: #0b1220;
       --card: #111a2b;
       --text: #e8eefc;
       --muted: #9fb0d1;
-      --ok: #22c55e;
-      --warn: #f59e0b;
-      --bad: #ef4444;
       --line: #25324a;
       --code: #0a1020;
+      --crit: #ef4444;
+      --high: #f59e0b;
+      --med: #38bdf8;
+      --perf: #22c55e;
+      --arch: #a78bfa;
     }
+
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -24,23 +27,34 @@
       color: var(--text);
       line-height: 1.5;
     }
+
     .wrap {
-      max-width: 1080px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 28px 18px 64px;
     }
+
     h1, h2, h3 { margin: 0 0 10px; line-height: 1.2; }
-    h1 { font-size: 28px; }
-    h2 { font-size: 21px; margin-top: 34px; }
-    h3 { font-size: 17px; margin-top: 24px; }
+    h1 { font-size: 30px; }
+    h2 { font-size: 22px; margin-top: 34px; }
+    h3 { font-size: 17px; margin-top: 0; }
+
     p { margin: 0 0 10px; color: var(--muted); }
+
     .card {
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 10px;
-      padding: 14px 14px 8px;
+      padding: 14px 14px 10px;
       margin-top: 12px;
     }
+
+    .meta {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
     .badge {
       display: inline-block;
       padding: 3px 8px;
@@ -49,16 +63,15 @@
       font-weight: 700;
       margin-right: 8px;
       vertical-align: middle;
+      border: 1px solid transparent;
     }
-    .sev-critico { background: rgba(239, 68, 68, .2); color: #fecaca; border: 1px solid rgba(239, 68, 68, .4); }
-    .sev-alto { background: rgba(245, 158, 11, .2); color: #fde68a; border: 1px solid rgba(245, 158, 11, .4); }
-    .sev-medio { background: rgba(56, 189, 248, .18); color: #bae6fd; border: 1px solid rgba(56, 189, 248, .4); }
-    .sev-baixo { background: rgba(156, 163, 175, .2); color: #e5e7eb; border: 1px solid rgba(156, 163, 175, .4); }
-    .st-confirmado { color: var(--ok); font-weight: 700; }
-    .st-parcial { color: var(--warn); font-weight: 700; }
-    .st-nao { color: var(--bad); font-weight: 700; }
-    ul { margin: 0 0 10px 18px; padding: 0; }
-    li { margin: 0 0 6px; color: var(--muted); }
+
+    .sev-critico { background: rgba(239, 68, 68, 0.20); color: #fecaca; border-color: rgba(239, 68, 68, 0.45); }
+    .sev-alto { background: rgba(245, 158, 11, 0.20); color: #fde68a; border-color: rgba(245, 158, 11, 0.45); }
+    .sev-medio { background: rgba(56, 189, 248, 0.18); color: #bae6fd; border-color: rgba(56, 189, 248, 0.45); }
+    .sev-performance { background: rgba(34, 197, 94, 0.18); color: #bbf7d0; border-color: rgba(34, 197, 94, 0.45); }
+    .sev-arquitetural { background: rgba(167, 139, 250, 0.18); color: #ddd6fe; border-color: rgba(167, 139, 250, 0.45); }
+
     code {
       background: var(--code);
       border: 1px solid var(--line);
@@ -68,6 +81,7 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12.5px;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -77,188 +91,213 @@
       overflow: hidden;
       background: var(--card);
     }
+
     th, td {
       border-bottom: 1px solid var(--line);
-      padding: 10px 10px;
+      padding: 10px;
       text-align: left;
       vertical-align: top;
       font-size: 14px;
     }
-    th { color: #d6e2ff; background: #0f1728; }
+
+    th {
+      color: #d6e2ff;
+      background: #0f1728;
+    }
+
     tr:last-child td { border-bottom: 0; }
-    .small { font-size: 12px; color: #9fb0d1; }
+
+    .small { font-size: 12px; color: var(--muted); }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Auditoria Tecnica - Healthlin</h1>
-    <p>Data da verificacao: 2026-03-30</p>
-    <p>Escopo: validacao de veracidade dos 8 achados reportados (frontend + backend), por leitura direta de codigo e checagem da versao travada de dependencia.</p>
+    <h1>Auditoria Tecnica - Healthlin Local</h1>
+    <p>Data da auditoria: 2026-04-01</p>
+    <p>Escopo analisado: pasta completa <code>healthlin-local</code> (frontend viewer, backend Flask/proxy Orthanc, scripts e artefatos de build). Foco principal: fluxo DICOM <code>study -&gt; series -&gt; instances -&gt; wadouri -&gt; viewport</code>.</p>
 
     <h2>Resumo Executivo</h2>
     <table>
       <thead>
         <tr>
-          <th>#</th>
-          <th>Achado</th>
-          <th>Severidade</th>
-          <th>Status</th>
+          <th>Total</th>
+          <th>Critico</th>
+          <th>Alto</th>
+          <th>Medio</th>
+          <th>Performance</th>
+          <th>Arquitetural</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>1</td>
-          <td>Inicializacao do viewer pode falhar em runtime</td>
-          <td>Critico</td>
-          <td class="st-confirmado">Confirmado</td>
-        </tr>
-        <tr>
-          <td>2</td>
-          <td>Filtros modalidade/data nao sao aplicados de fato</td>
-          <td>Alto</td>
-          <td class="st-confirmado">Confirmado</td>
-        </tr>
-        <tr>
+          <td>15 achados</td>
           <td>3</td>
-          <td>Sessao admin pode sumir apos refresh</td>
-          <td>Alto</td>
-          <td class="st-confirmado">Confirmado</td>
-        </tr>
-        <tr>
           <td>4</td>
-          <td>Requisicao duplicada de estudos ao selecionar paciente</td>
-          <td>Medio</td>
-          <td class="st-confirmado">Confirmado</td>
-        </tr>
-        <tr>
-          <td>5</td>
-          <td>Navegacao de frames/slices apos primeiro item</td>
-          <td>Medio</td>
-          <td class="st-parcial">Parcialmente confirmado (risco alto)</td>
-        </tr>
-        <tr>
-          <td>6</td>
-          <td>Retry de conexao no viewer pode virar no-op</td>
-          <td>Medio</td>
-          <td class="st-parcial">Parcialmente confirmado</td>
-        </tr>
-        <tr>
-          <td>7</td>
-          <td>Admin pode desativar a si mesmo/ultimo admin</td>
-          <td>Medio (backend)</td>
-          <td class="st-confirmado">Confirmado</td>
-        </tr>
-        <tr>
-          <td>8</td>
-          <td>JWT com segredo default inseguro</td>
-          <td>Baixo (seguranca)</td>
-          <td class="st-confirmado">Confirmado</td>
+          <td>3</td>
+          <td>3</td>
+          <td>2</td>
         </tr>
       </tbody>
     </table>
 
-    <h2>Detalhamento por Achado</h2>
+    <h2>Validacao Executavel</h2>
+    <div class="card">
+      <p><strong>Comandos executados:</strong></p>
+      <p>1) <code>npx tsc --noEmit</code>: sem erros de tipagem.</p>
+      <p>2) <code>npx vite build</code>: build concluido, com avisos de dependencias circulares/chunk order no ecossistema <code>@cornerstonejs/tools</code>.</p>
+      <p>3) <code>npx vitest run</code>: nao existem testes no projeto (zero arquivos de teste).</p>
+      <p>4) <code>python -m py_compile backend/*.py</code>: sem erros de sintaxe Python.</p>
+    </div>
+
+    <h2>Achados Detalhados</h2>
 
     <div class="card">
-      <h3><span class="badge sev-critico">CRITICO</span>1) Inicializacao do viewer pode falhar em runtime</h3>
-      <p>Status: <span class="st-confirmado">Confirmado</span></p>
-      <ul>
-        <li>O frontend chama <code>dicomImageLoader.init(...)</code> em <code>viewer/src/hooks/viewer/useCornerstone.ts:32</code>.</li>
-        <li>A tipagem local em <code>viewer/src/types/dicom-image-loader.d.ts:2</code> declara <code>init</code> manualmente.</li>
-        <li>Na versao travada <code>@cornerstonejs/dicom-image-loader@1.86.0</code> (lock em <code>viewer/package-lock.json:1653</code>), o modulo exporta <code>configure</code> e <code>webWorkerManager</code>, mas nao expoe <code>init</code>.</li>
-        <li>Com isso, a chamada em runtime tende a gerar erro, cair no <code>catch</code> em <code>useCornerstone.ts:49</code> e nao montar <code>_engine</code>, alinhado ao sintoma de viewer sem imagem.</li>
-      </ul>
-      <p>Impacto: viewer nao inicializa de forma confiavel; regressao funcional primaria.</p>
-      <p>Recomendacao: remover dependencia de tipagem forjada e alinhar inicializacao com API real da versao (ex.: <code>webWorkerManager.initialize(...)</code> quando aplicavel) ou atualizar pacote + codigo em conjunto.</p>
+      <h3><span class="badge sev-critico">CRITICO</span>1) Corrida de inicializacao do Cornerstone entre componentes</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/components/viewer/toolbar/Toolbar.tsx:70</code>, <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx:21</code>, <code>viewer/src/hooks/viewer/useCornerstone.ts:19,28-31,69-71</code></p>
+      <p><strong>Descricao:</strong> <code>Toolbar</code> e <code>DicomCanvas</code> chamam <code>useCornerstone()</code> ao mesmo tempo, iniciando dois fluxos async de init.</p>
+      <p><strong>Causa raiz:</strong> trava de init e local ao hook (<code>initializingRef</code>), nao global/sincronizada entre instancias.</p>
+      <p><strong>Impacto:</strong> falha nao deterministica de engine/toolgroup; pode resultar em viewport sem engine e tela preta.</p>
+      <p><strong>Cenario:</strong> abertura da rota <code>/viewer/:studyId</code> com montagem simultanea de toolbar + canvas.</p>
     </div>
 
     <div class="card">
-      <h3><span class="badge sev-alto">ALTO</span>2) Filtros modalidade/data nao sao aplicados</h3>
-      <p>Status: <span class="st-confirmado">Confirmado</span></p>
-      <ul>
-        <li>UI atualiza estado em <code>viewer/src/components/dashboard/filters/Filters.tsx:24,30,37</code>.</li>
-        <li>Pacientes sao filtrados apenas por texto (<code>searchQuery</code>) em <code>viewer/src/hooks/orthanc/usePatients.ts:12-18</code>.</li>
-        <li>Estudos retornam sem filtro em <code>viewer/src/hooks/orthanc/useStudies.ts:13</code> e <code>viewer/src/components/dashboard/exam-list/ExamList.tsx:34</code>.</li>
-      </ul>
-      <p>Impacto: falsa percepcao de filtro aplicado; risco de erro operacional do usuario.</p>
-      <p>Recomendacao: aplicar filtro no dataset de estudos (modality/date) e, se desejado, tambem no nivel de paciente.</p>
+      <h3><span class="badge sev-critico">CRITICO</span>2) Troca de estudo pode exibir imagem antiga sob contexto novo</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/store/viewer/index.ts:70,74,78</code>, <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx:167</code></p>
+      <p><strong>Descricao:</strong> ao carregar novo estudo, o store nao limpa imediatamente <code>currentInstance/currentSeries</code>. O canvas pode renderizar instancia anterior enquanto o estudo novo ja foi aplicado.</p>
+      <p><strong>Causa raiz:</strong> transicao de estado nao atomica (seta <code>currentStudy</code> antes de consolidar a nova serie/instancia).</p>
+      <p><strong>Impacto:</strong> risco de inconsistência imagem x paciente/estudo (erro clinico grave) e comportamento visual confuso.</p>
+      <p><strong>Cenario:</strong> navegacao entre estudos com rede lenta/latencia.</p>
     </div>
 
     <div class="card">
-      <h3><span class="badge sev-alto">ALTO</span>3) Sessao admin pode sumir apos refresh</h3>
-      <p>Status: <span class="st-confirmado">Confirmado</span></p>
-      <ul>
-        <li>Store inicia <code>token</code> e <code>isAuthenticated</code> a partir do localStorage, mas <code>user</code> inicia como <code>null</code> em <code>viewer/src/store/auth/index.ts:24-26</code>.</li>
-        <li>Protecao admin exige <code>user</code> valido em <code>viewer/src/App.tsx:15-17</code>.</li>
-        <li><code>loadMe()</code> existe (<code>auth/index.ts:64-74</code>) mas o hook que o chama (<code>viewer/src/hooks/auth/useRequireAuth.ts</code>) nao e utilizado em lugar nenhum.</li>
-      </ul>
-      <p>Impacto: refresh invalida acesso a rota admin mesmo com token persistido.</p>
-      <p>Recomendacao: hidratar usuario na inicializacao global da app (boot) antes da avaliacao de rota admin.</p>
+      <h3><span class="badge sev-critico">CRITICO</span>3) Expiracao JWT no fluxo WADO nao e tratada de forma recuperavel</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/services/api.ts:23-31</code>, <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx:151-157</code>, <code>viewer/src/hooks/viewer/useCornerstone.ts:55-66</code></p>
+      <p><strong>Descricao:</strong> requisicoes do loader DICOM (wadouri) nao passam pelo interceptor Axios; 401/403 no endpoint de arquivo cai como erro de render generico.</p>
+      <p><strong>Causa raiz:</strong> tratamento global de auth esta acoplado ao Axios, mas o loader usa outro caminho de requisicao.</p>
+      <p><strong>Impacto:</strong> viewer pode ficar em falha persistente (tela preta/erro de render) sem renovar sessao automaticamente.</p>
+      <p><strong>Cenario:</strong> token expira enquanto usuario permanece no viewer.</p>
     </div>
 
     <div class="card">
-      <h3><span class="badge sev-medio">MEDIO</span>4) Requisicao duplicada de estudos ao selecionar paciente</h3>
-      <p>Status: <span class="st-confirmado">Confirmado</span></p>
-      <ul>
-        <li>Primeiro disparo no clique: <code>viewer/src/components/dashboard/patient-list/PatientList.tsx:37</code>.</li>
-        <li>Segundo disparo no efeito de <code>useStudies</code>: <code>viewer/src/hooks/orthanc/useStudies.ts:7-10</code>.</li>
-      </ul>
-      <p>Impacto: latencia maior, risco de race condition e flicker em loading.</p>
-      <p>Recomendacao: manter uma unica fonte de fetch (evento ou efeito), nao as duas.</p>
+      <h3><span class="badge sev-alto">ALTO</span>4) Inicializacao parcial sem rollback consistente</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/hooks/viewer/useCornerstone.ts:69-71,75-96,109-112</code></p>
+      <p><strong>Descricao:</strong> <code>_engine</code> e <code>_initialized</code> sao setados antes de finalizar a fase de tools/toolgroup. Se falhar depois, estado global fica parcialmente valido.</p>
+      <p><strong>Causa raiz:</strong> ordem de commit do estado global antes do fim de todas as etapas criticas de init.</p>
+      <p><strong>Impacto:</strong> comportamento inconsistente (engine existe, ferramentas nao), sem recuperação robusta.</p>
+      <p><strong>Cenario:</strong> erro no import de <code>@cornerstonejs/tools</code> ou na configuracao do grupo de ferramentas.</p>
     </div>
 
     <div class="card">
-      <h3><span class="badge sev-medio">MEDIO</span>5) Navegacao de frames/slices apos primeiro item</h3>
-      <p>Status: <span class="st-parcial">Parcialmente confirmado (risco alto)</span></p>
-      <ul>
-        <li>Viewer envia stack unitario (<code>[imageId]</code>) e passa <code>currentFrame</code> como indice em <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx:51</code>.</li>
-        <li><code>currentFrame</code> cresce pelo slider/store em <code>viewer/src/store/viewer/index.ts:82-85</code>.</li>
-        <li>Logica fica inconsistente para <code>currentFrame &gt; 0</code> em stack de tamanho 1; dependendo do comportamento da lib, pode quebrar, ignorar indice ou renderizar estado invalido.</li>
-      </ul>
-      <p>Impacto: navegacao instavel entre instancias/frames.</p>
-      <p>Recomendacao: com stack unitario, passar indice 0 no <code>setStack</code>; manter navegacao selecionando a instancia correta no store.</p>
+      <h3><span class="badge sev-alto">ALTO</span>5) Race condition no painel de metadados</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/components/viewer/metadata-panel/MetadataPanel.tsx:27-31</code></p>
+      <p><strong>Descricao:</strong> requisicoes sequenciais de metadados nao tem cancelamento/versionamento; resposta antiga pode sobrescrever estado da instancia atual.</p>
+      <p><strong>Causa raiz:</strong> efeito assíncrono com <code>then/catch</code> sem controle de concorrencia.</p>
+      <p><strong>Impacto:</strong> metadata exibido pode nao corresponder a imagem renderizada.</p>
+      <p><strong>Cenario:</strong> troca rapida de frame/instancia via slider.</p>
     </div>
 
     <div class="card">
-      <h3><span class="badge sev-medio">MEDIO</span>6) Retry de conexao no viewer pode virar no-op</h3>
-      <p>Status: <span class="st-parcial">Parcialmente confirmado</span></p>
-      <ul>
-        <li><code>studyId</code> vem de <code>useViewerStore.getState()</code> em <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx:64</code>, fora de assinatura reativa do componente.</li>
-        <li>Retry usa esse valor em <code>DicomCanvas.tsx:71</code>.</li>
-        <li>Se o estado ainda nao tiver <code>currentStudy</code> no momento do erro/offline, o retry pode nao disparar nada (<code>undefined</code>).</li>
-      </ul>
-      <p>Impacto: recuperacao manual de erro menos confiavel.</p>
-      <p>Recomendacao: derivar <code>studyId</code> de assinatura reativa do store ou da rota (<code>useParams</code>), nao de snapshot solto.</p>
+      <h3><span class="badge sev-alto">ALTO</span>6) Ativacao de ferramenta falha de forma silenciosa</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/hooks/viewer/useCornerstone.ts:119-122</code>, <code>viewer/src/components/viewer/toolbar/Toolbar.tsx:77</code></p>
+      <p><strong>Descricao:</strong> clique em tool pode nao ter efeito se <code>_toolGroup</code> ainda nao estiver pronto; o estado visual muda, mas o comportamento nao.</p>
+      <p><strong>Causa raiz:</strong> ramo silencioso <code>if (!_toolGroup) return</code> sem feedback.</p>
+      <p><strong>Impacto:</strong> inconsistencia UI x comportamento real do viewer.</p>
+      <p><strong>Cenario:</strong> usuario clica em Pan/Zoom/ROI imediatamente apos abrir viewer.</p>
     </div>
 
     <div class="card">
-      <h3><span class="badge sev-medio">MEDIO</span>7) Admin pode desativar a si mesmo/ultimo admin</h3>
-      <p>Status: <span class="st-confirmado">Confirmado</span></p>
-      <ul>
-        <li>Endpoint desativa sem regra de protecao em <code>backend/auth.py:137-141</code>.</li>
-        <li>Persistencia tambem desativa direto em <code>backend/models.py:76-80</code>, sem impedir lockout do ultimo admin ativo.</li>
-      </ul>
-      <p>Impacto: risco real de lockout administrativo.</p>
-      <p>Recomendacao: bloquear auto-desativacao e impedir desativacao do ultimo admin ativo.</p>
+      <h3><span class="badge sev-alto">ALTO</span>7) Avisos de ordem de execucao entre chunks Cornerstone no build</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/hooks/viewer/useCornerstone.ts:84</code> (import de <code>@cornerstonejs/tools</code>), saida de <code>npx vite build</code></p>
+      <p><strong>Descricao:</strong> o build reporta dependencias circulares entre chunks com mensagem de possivel execucao quebrada.</p>
+      <p><strong>Causa raiz:</strong> combinacao de reexports da biblioteca com split de chunks atual.</p>
+      <p><strong>Impacto:</strong> risco de falhas intermitentes de inicializacao em runtime (especialmente em cache parcial/rede lenta).</p>
+      <p><strong>Cenario:</strong> primeiro carregamento de assets apos deploy.</p>
     </div>
 
     <div class="card">
-      <h3><span class="badge sev-baixo">BAIXO</span>8) Segredo JWT default inseguro</h3>
-      <p>Status: <span class="st-confirmado">Confirmado</span></p>
-      <ul>
-        <li>Fallback fixo em <code>backend/config.py:9</code>: <code>TROQUE_ESTA_CHAVE_EM_PRODUCAO</code>.</li>
-      </ul>
-      <p>Impacto: em deploy sem variavel de ambiente, token pode ser previsivel/compartilhado.</p>
-      <p>Recomendacao: falhar no startup sem <code>JWT_SECRET</code> valido em ambiente de producao.</p>
+      <h3><span class="badge sev-medio">MEDIO</span>8) Ordem de instancias da serie nao e normalizada</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/store/viewer/index.ts:96-101</code></p>
+      <p><strong>Descricao:</strong> lista de instancias e usada na ordem retornada, sem sort por <code>InstanceNumber</code> ou geometria.</p>
+      <p><strong>Causa raiz:</strong> ausencia de etapa de ordenacao no pipeline da serie.</p>
+      <p><strong>Impacto:</strong> navegacao pode ficar fora de ordem em estudos onde o backend nao retorna sequencia clinicamente correta.</p>
+      <p><strong>Cenario:</strong> series com retorno nao ordenado pelo Orthanc/origem.</p>
     </div>
 
-    <h2>Notas Finais</h2>
-    <ul>
-      <li>Nao houve evidencia de falso positivo total entre os itens listados; 6 confirmados e 2 parcialmente confirmados (com risco tecnico real).</li>
-      <li>Os itens #1, #2 e #3 concentram maior impacto de negocio para usuario final.</li>
-    </ul>
+    <div class="card">
+      <h3><span class="badge sev-medio">MEDIO</span>9) Hook de Window/Level implementado, mas nao integrado ao fluxo real</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/hooks/viewer/useWindowLevel.ts:12-58</code> (sem chamadas no restante do <code>viewer/src</code>)</p>
+      <p><strong>Descricao:</strong> existe caminho alternativo de W/L com eventos de mouse, porem nao e utilizado por componentes de viewer.</p>
+      <p><strong>Causa raiz:</strong> codigo parcialmente integrado apos mudancas no toolbar/tools.</p>
+      <p><strong>Impacto:</strong> aumenta fragilidade e risco de divergencia funcional futura.</p>
+      <p><strong>Cenario:</strong> manutencao evolutiva do comportamento de Window/Level.</p>
+    </div>
 
-    <p class="small">Arquivo gerado em: <code>healthlin-local/audit.html</code></p>
+    <div class="card">
+      <h3><span class="badge sev-medio">MEDIO</span>10) Nomenclatura inconsistente de offline (<code>Ortahnc</code>)</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/store/viewer/index.ts:39,50</code>, <code>viewer/src/store/dashboard/index.ts:19,26</code>, <code>viewer/src/types/viewer/index.ts:33</code></p>
+      <p><strong>Descricao:</strong> typo propagado em estado, tipos e hooks.</p>
+      <p><strong>Causa raiz:</strong> nomenclatura incorreta consolidada em multiplos modulos.</p>
+      <p><strong>Impacto:</strong> reduz clareza do codigo e aumenta chance de erro em evolucoes.</p>
+      <p><strong>Cenario:</strong> novos hooks/componentes de status Orthanc.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-performance">PERFORMANCE</span>11) Proxy carrega arquivo DICOM inteiro em memoria</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>backend/proxy.py:49,73</code></p>
+      <p><strong>Descricao:</strong> mesmo com <code>stream=True</code>, resposta final usa <code>resp.content</code> (buffer completo).</p>
+      <p><strong>Causa raiz:</strong> resposta nao e enviada em streaming para o cliente.</p>
+      <p><strong>Impacto:</strong> maior latencia, pico de RAM e menor escalabilidade para exames grandes.</p>
+      <p><strong>Cenario:</strong> acesso simultaneo a estudos volumosos.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-performance">PERFORMANCE</span>12) Navegacao de frames recarrega stack unitario a cada troca</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx:135-146</code></p>
+      <p><strong>Descricao:</strong> cada mudanca de instancia chama <code>setStack([imageId], 0)</code> novamente.</p>
+      <p><strong>Causa raiz:</strong> estrategia sem prefetch/cache de serie inteira no viewport stack.</p>
+      <p><strong>Impacto:</strong> menor fluidez no scroll e custo repetido de carregamento/decode.</p>
+      <p><strong>Cenario:</strong> series longas com navegacao rapida no slider.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-performance">PERFORMANCE</span>13) N+1 de pacientes no dashboard</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/store/dashboard/index.ts:41-42</code></p>
+      <p><strong>Descricao:</strong> fluxo carrega IDs e depois faz uma requisicao por paciente em paralelo.</p>
+      <p><strong>Causa raiz:</strong> desenho de agregacao no frontend sem endpoint agregado.</p>
+      <p><strong>Impacto:</strong> aumenta latencia e carga no backend para bases maiores.</p>
+      <p><strong>Cenario:</strong> hospital com alto volume de pacientes.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-arquitetural">ARQUITETURAL</span>14) <code>DicomCanvas</code> concentra responsabilidades demais</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx:17-209</code></p>
+      <p><strong>Descricao:</strong> o componente mistura ciclo de vida de viewport, rede Orthanc, controle de erro, overlay de loading e fallback de init.</p>
+      <p><strong>Causa raiz:</strong> acoplamento entre camada de infraestrutura DICOM e camada de apresentacao.</p>
+      <p><strong>Impacto:</strong> manutencao dificil, regressao mais provavel e testes mais custosos.</p>
+      <p><strong>Cenario:</strong> ajustes simultaneos em renderizacao + UX de erro.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="badge sev-arquitetural">ARQUITETURAL</span>15) Estado global mutavel no hook de infraestrutura</h3>
+      <p class="meta"><strong>Arquivo/Linha:</strong> <code>viewer/src/hooks/viewer/useCornerstone.ts:11-14,98-106</code></p>
+      <p><strong>Descricao:</strong> engine/toolgroup/flags vivem em variaveis de modulo com efeitos globais de <code>beforeunload</code>.</p>
+      <p><strong>Causa raiz:</strong> ausencia de um orquestrador dedicado (service/provider) para ciclo de vida do Cornerstone.</p>
+      <p><strong>Impacto:</strong> aumenta risco de estados fantasmas entre montagens e dificulta previsibilidade do sistema.</p>
+      <p><strong>Cenario:</strong> remount do viewer, multiplos consumidores do hook e falhas de init.</p>
+    </div>
+
+    <h2>Causa Mais Provavel da Tela Preta</h2>
+    <div class="card">
+      <p><strong>Principal causa candidata:</strong> corrida de inicializacao do <code>useCornerstone()</code> entre <code>Toolbar</code> e <code>DicomCanvas</code>, combinada com tratamento parcial de erro/init.</p>
+      <p><strong>Caminho tipico:</strong> dois inits concorrentes -&gt; um falha -&gt; <code>DicomCanvas</code> pode ficar sem <code>renderingEngine</code> util -&gt; viewport nao consolida renderizacao.</p>
+      <p><strong>Causa secundaria relevante:</strong> token expirado no fluxo <code>wadouri</code> sem tratamento de auth no mesmo nivel do Axios.</p>
+    </div>
+
+    <h2>Observacoes de Cobertura</h2>
+    <div class="card">
+      <p>Foram varridos arquivos de frontend/backend/deploy/dist do projeto. Dependencias de terceiros em <code>viewer/node_modules</code> foram consideradas apenas para confirmar comportamento de API e warnings de build, nao para auditoria de codigo proprietario de terceiros.</p>
+      <p class="small">Relatorio atualizado em <code>audit.html</code>.</p>
+    </div>
   </div>
 </body>
 </html>
