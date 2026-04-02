@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+﻿import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
@@ -7,8 +7,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      // Substitui o módulo WASM de segmentação por stub vazio (não usado)
+      // Substitui o modulo WASM de segmentacao por stub vazio (nao usado).
       '@icr/polyseg-wasm': path.resolve(__dirname, './src/stubs/polyseg-stub.ts'),
+      // Usa bundle sem web workers para evitar erro de decodeTask em runtime.
+      '@cornerstonejs/dicom-image-loader': path.resolve(
+        __dirname,
+        './node_modules/@cornerstonejs/dicom-image-loader/dist/cornerstoneDICOMImageLoaderNoWebWorkers.bundle.min.js',
+      ),
     },
   },
   server: {
@@ -29,12 +34,8 @@ export default defineConfig({
     target: 'esnext',
     rollupOptions: {
       output: {
-        // NÃO usar manualChunks — o helper CJS (getDefaultExportFromCjs) vaza
-        // para o chunk Cornerstone, forçando um import estático do main bundle
-        // que crasha a app inteira (login incluso).
-        // Em vez disso, usamos um barrel file (src/lib/cornerstone-init.ts) com
-        // imports estáticos + dynamic import() externo: Rollup agrupa tudo no
-        // mesmo chunk naturalmente, sem dependências circulares.
+        // Nao usar manualChunks: mantemos runtime do Cornerstone no mesmo
+        // chunk carregado dinamicamente para reduzir risco de ordem de execucao.
       },
     },
   },

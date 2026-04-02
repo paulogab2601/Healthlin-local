@@ -1,11 +1,33 @@
-// Barrel file — ponto de entrada único para todos os pacotes Cornerstone.
-// Ao usar imports estáticos aqui e um dynamic import() de fora,
-// Rollup agrupa tudo no mesmo chunk, evitando dependências circulares
-// entre chunks sem precisar de manualChunks (que vazaria o helper CJS
-// getDefaultExportFromCjs para o main bundle).
+// Barrel file: single entrypoint for Cornerstone runtime modules.
+//
+// We intentionally avoid `import * as tools` because materializing the
+// full namespace from `@cornerstonejs/tools` can pull circular reexports
+// that break initialization order in production bundles.
 import * as core from '@cornerstonejs/core'
-import * as tools from '@cornerstonejs/tools'
 import * as dicomImageLoader from '@cornerstonejs/dicom-image-loader'
 import * as dicomParser from 'dicom-parser'
+import {
+  init as initTools,
+  addTool,
+  ToolGroupManager,
+  PanTool,
+  ZoomTool,
+  WindowLevelTool,
+  LengthTool,
+  AngleTool,
+  RectangleROITool,
+} from '@cornerstonejs/tools'
+
+const tools = {
+  init: initTools,
+  addTool,
+  ToolGroupManager,
+  PanTool,
+  ZoomTool,
+  WindowLevelTool,
+  LengthTool,
+  AngleTool,
+  RectangleROITool,
+}
 
 export { core, tools, dicomImageLoader, dicomParser }
