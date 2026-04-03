@@ -47,6 +47,7 @@ interface ViewerState {
   setActiveTool: (tool: ToolMode) => void
   addAnnotation: (annotation: Annotation) => void
   removeAnnotation: (id: string) => void
+  clearAnnotations: () => void
   setOrtahncOffline: (v: boolean) => void
 }
 
@@ -132,6 +133,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
 
   removeAnnotation: (id) =>
     set((state) => ({ annotations: state.annotations.filter((a) => a.id !== id) })),
+
+  clearAnnotations: () => set({ annotations: [] }),
 
   setOrtahncOffline: (v) => set({ isOrtahncOffline: v }),
 }))

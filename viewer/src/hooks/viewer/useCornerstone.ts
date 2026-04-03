@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Types } from '@cornerstonejs/core'
 import type { ToolMode } from '@/types/viewer'
+import { useViewerStore } from '@/store/viewer'
 
 interface IToolGroup {
   addTool: (toolName: string) => void
@@ -73,6 +74,17 @@ const PRIMARY_TOOLS: ToolMode[] = [
   'Angle',
   'RectangleROI',
 ]
+
+const CLEARABLE_ANNOTATION_TOOLS: ToolMode[] = [
+  'Length',
+  'Angle',
+  'RectangleROI',
+]
+
+interface IAnnotationStateApi {
+  removeAllAnnotations: () => void
+  removeAnnotations: (toolName: string, annotationGroupSelector: HTMLElement | string) => void
+}
 
 function setPrimaryTool(toolGroup: IToolGroup, toolName: string): void {
   PRIMARY_TOOLS.forEach((name) => {
@@ -256,5 +268,38 @@ export function useCornerstone() {
     setPrimaryTool(_toolGroup, toolName)
   }, [])
 
-  return { renderingEngine, initError, activateTool }
+  const clearAnnotations = useCallback((): void => {
+    if (!_engine) return
+
+    const viewport = _engine.getViewport('healthlin-viewport') as
+      | { element?: HTMLElement; render?: () => void }
+      | undefined
+    const viewportElement = viewport?.element
+
+    useViewerStore.getState().clearAnnotations()
+
+    void import('@cornerstonejs/tools/dist/esm/stateManagement/annotation/annotationState.js')
+      .then((annotationStateModule) => {
+        const annotationState = annotationStateModule as unknown as IAnnotationStateApi
+
+        if (viewportElement) {
+          CLEARABLE_ANNOTATION_TOOLS.forEach((toolName) => {
+            annotationState.removeAnnotations(toolName, viewportElement)
+          })
+        } else {
+          annotationState.removeAllAnnotations()
+        }
+
+        try {
+          viewport?.render?.()
+        } catch (err) {
+          console.error('[Cornerstone] Failed to render viewport after clearing annotations:', err)
+        }
+      })
+      .catch((err) => {
+        console.error('[Cornerstone] Failed to clear annotations:', err)
+      })
+  }, [])
+
+  return { renderingEngine, initError, activateTool, clearAnnotations }
 }

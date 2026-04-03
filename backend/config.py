@@ -19,7 +19,8 @@ if os.getenv("FLASK_ENV") == "production" and not os.getenv("JWT_SECRET"):
     )
 
 # Database
-DB_PATH = os.getenv("DB_PATH", "/opt/healthlin/backend/healthlin.db")
+_DEFAULT_DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "healthlin.db")
+DB_PATH = os.getenv("DB_PATH", _DEFAULT_DB)
 
 # Server
 HOST = "0.0.0.0"

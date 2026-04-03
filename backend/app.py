@@ -21,6 +21,14 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(proxy_bp)
 
+    # Valida que o diretório do banco existe antes de tentar criar/abrir
+    db_dir = os.path.dirname(os.path.abspath(config.DB_PATH))
+    if not os.path.isdir(db_dir):
+        raise RuntimeError(
+            f"Diretório do banco não existe: {db_dir}\n"
+            f"Crie o diretório ou defina DB_PATH com um caminho válido."
+        )
+
     # Inicializa o banco
     models.init_db()
 
