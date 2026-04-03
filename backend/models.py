@@ -49,7 +49,7 @@ def init_db():
             council_number TEXT NOT NULL,
             password_hash TEXT NOT NULL,
             password_encrypted TEXT,
-            role TEXT NOT NULL DEFAULT 'medico' CHECK(role IN ('admin', 'medico', 'tecnico')),
+            role TEXT NOT NULL DEFAULT 'medico' CHECK(role IN ('admin', 'medico', 'tecnico', 'secretaria')),
             active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(council_type, council_number)
@@ -60,6 +60,31 @@ def init_db():
         conn.execute("ALTER TABLE users ADD COLUMN password_encrypted TEXT")
     except Exception:
         pass  # Coluna já existe
+
+    # Migração: adiciona 'secretaria' ao CHECK constraint de role.
+    # SQLite não permite ALTER CHECK, então recria a tabela se necessário.
+    table_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='users'"
+    ).fetchone()[0]
+    if "'secretaria'" not in table_sql:
+        conn.executescript("""
+            ALTER TABLE users RENAME TO users_old;
+            CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                council_type TEXT NOT NULL CHECK(council_type IN ('CRM', 'CRTR', 'MATRICULA')),
+                council_number TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                password_encrypted TEXT,
+                role TEXT NOT NULL DEFAULT 'medico' CHECK(role IN ('admin', 'medico', 'tecnico', 'secretaria')),
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(council_type, council_number)
+            );
+            INSERT INTO users SELECT * FROM users_old;
+            DROP TABLE users_old;
+        """)
+
     conn.commit()
     conn.close()
 
@@ -102,11 +127,35 @@ def get_user_by_id(user_id):
     return dict(user) if user else None
 
 
-def list_users():
+def list_users(page=1, per_page=20, search=None, role=None, active=None):
     conn = get_db()
-    users = conn.execute("SELECT id, name, council_type, council_number, role, active, created_at FROM users").fetchall()
+    base = "FROM users WHERE 1=1"
+    params = []
+
+    if search:
+        base += " AND name LIKE ?"
+        params.append(f"%{search}%")
+    if role:
+        base += " AND role = ?"
+        params.append(role)
+    if active is not None:
+        base += " AND active = ?"
+        params.append(int(active))
+
+    total = conn.execute(f"SELECT COUNT(*) {base}", params).fetchone()[0]
+
+    offset = (page - 1) * per_page
+    query = f"SELECT id, name, council_type, council_number, role, active, created_at {base} ORDER BY name ASC LIMIT ? OFFSET ?"
+    users = conn.execute(query, params + [per_page, offset]).fetchall()
     conn.close()
-    return [dict(u) for u in users]
+
+    return {
+        "items": [dict(u) for u in users],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": (total + per_page - 1) // per_page,
+    }
 
 
 def deactivate_user(user_id, requester_id):
@@ -142,9 +191,19 @@ def deactivate_user(user_id, requester_id):
 
 def reactivate_user(user_id):
     conn = get_db()
-    conn.execute("UPDATE users SET active = 1 WHERE id = ?", (user_id,))
+    cur = conn.execute("UPDATE users SET active = 1 WHERE id = ? AND active = 0", (user_id,))
     conn.commit()
+    rows = cur.rowcount
     conn.close()
+    if rows == 0:
+        # Distingue entre ID inexistente e usuário já ativo
+        conn2 = get_db()
+        exists = conn2.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone()
+        conn2.close()
+        if not exists:
+            return False, "Usuário não encontrado"
+        return False, "Usuário já está ativo"
+    return True, "Usuário reativado"
 
 
 def get_user_credentials(user_id):

@@ -3,7 +3,10 @@ import { useDashboardStore } from '@/store/dashboard'
 import type { Patient } from '@/types/orthanc'
 
 export function usePatients() {
-  const { patients, isLoadingPatients, isOrtahncOffline, fetchError, searchQuery, fetchPatients } = useDashboardStore()
+  const {
+    patients, isLoadingPatients, isOrtahncOffline, fetchError,
+    searchQuery, fetchPatients, page, hasMore, nextPage, prevPage,
+  } = useDashboardStore()
 
   useEffect(() => {
     fetchPatients()
@@ -17,5 +20,15 @@ export function usePatients() {
     return name.includes(q) || id.includes(q)
   })
 
-  return { patients: filtered, isLoading: isLoadingPatients, isOrtahncOffline, fetchError, refetch: fetchPatients }
+  return {
+    patients: filtered,
+    isLoading: isLoadingPatients,
+    isOrtahncOffline,
+    fetchError,
+    refetch: fetchPatients,
+    page,
+    hasMore,
+    nextPage,
+    prevPage,
+  }
 }

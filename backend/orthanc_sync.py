@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 _sync_lock = threading.Lock()       # serializa execuções de sync
 _timer_lock = threading.Lock()      # protege acesso ao timer
 _debounce_timer: threading.Timer | None = None
-_DEBOUNCE_SECONDS = 2.0
+_DEBOUNCE_SECONDS = 5.0
 
 
 def request_sync():
@@ -37,7 +37,7 @@ def _execute_sync():
 def sync_orthanc_users():
     """
     Sobrescreve /etc/orthanc/credentials.json com os usuários ativos da interface
-    e reinicia o Orthanc para aplicar as mudanças.
+    e reinicia o Orthanc **somente se as credenciais mudaram**.
 
     O username no Orthanc é o council_number do usuário (ex: '4214-MG').
     A conta admin global (ORTHANC_USER/ORTHANC_PASS) é sempre preservada.
@@ -55,9 +55,20 @@ def sync_orthanc_users():
         registered[config.ORTHANC_USER] = config.ORTHANC_PASS
 
         credentials = {"RegisteredUsers": registered}
+        new_content = json.dumps(credentials, indent=2, ensure_ascii=False)
+
+        # Compara com o arquivo atual — pula restart se nada mudou
+        try:
+            with open(config.ORTHANC_CREDENTIALS_PATH, "r", encoding="utf-8") as f:
+                current_content = f.read()
+            if current_content == new_content:
+                logger.debug("Orthanc sync: credenciais inalteradas, restart evitado.")
+                return True, "Nenhuma alteração"
+        except FileNotFoundError:
+            pass  # Arquivo não existe ainda, prossegue normalmente
 
         with open(config.ORTHANC_CREDENTIALS_PATH, "w", encoding="utf-8") as f:
-            json.dump(credentials, f, indent=2, ensure_ascii=False)
+            f.write(new_content)
 
         # Reinicia o Orthanc (o serviço roda como root, sem necessidade de sudo)
         subprocess.run(

@@ -1,5 +1,5 @@
 export type CouncilType = 'CRM' | 'CRTR' | 'MATRICULA'
-export type UserRole = 'admin' | 'medico' | 'tecnico'
+export type UserRole = 'admin' | 'medico' | 'tecnico' | 'secretaria'
 
 export interface User {
   id: number
@@ -28,4 +28,20 @@ export interface ChangePasswordRequest {
 export interface ApiUser extends User {
   active: number
   created_at: string
+}
+
+export interface PaginatedUsers {
+  items: ApiUser[]
+  total: number
+  page: number
+  per_page: number
+  pages: number
+}
+
+export interface ListUsersParams {
+  page?: number
+  per_page?: number
+  search?: string
+  role?: UserRole
+  active?: boolean
 }

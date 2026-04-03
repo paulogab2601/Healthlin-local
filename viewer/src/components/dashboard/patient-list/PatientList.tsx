@@ -5,7 +5,7 @@ import { ConnectionError } from '@/components/common/errors/ConnectionError'
 import { formatPatientName, formatDate } from '@/utils/format'
 
 export function PatientList() {
-  const { patients, isLoading, isOrtahncOffline, fetchError, refetch } = usePatients()
+  const { patients, isLoading, isOrtahncOffline, fetchError, refetch, page, hasMore, nextPage, prevPage } = usePatients()
   const { selectedPatientId, selectPatient } = useDashboardStore()
 
   if (isOrtahncOffline) {
@@ -34,7 +34,7 @@ export function PatientList() {
     )
   }
 
-  if (patients.length === 0) {
+  if (patients.length === 0 && page === 0) {
     return (
       <div className="text-center py-12 text-text-muted">
         <p>Nenhum paciente encontrado</p>
@@ -49,6 +49,8 @@ export function PatientList() {
     }
     selectPatient(id)
   }
+
+  const hasPrev = page > 0
 
   return (
     <div className="overflow-auto">
@@ -88,6 +90,26 @@ export function PatientList() {
           })}
         </tbody>
       </table>
+
+      {(hasPrev || hasMore) && (
+        <div className="flex items-center justify-between pt-4 text-sm text-text-secondary">
+          <button
+            onClick={prevPage}
+            disabled={!hasPrev}
+            className="px-3 py-1.5 rounded border border-bg-tertiary enabled:hover:bg-bg-tertiary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Anterior
+          </button>
+          <span className="text-text-muted">Página {page + 1}</span>
+          <button
+            onClick={nextPage}
+            disabled={!hasMore}
+            className="px-3 py-1.5 rounded border border-bg-tertiary enabled:hover:bg-bg-tertiary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Próximo
+          </button>
+        </div>
+      )}
     </div>
   )
 }

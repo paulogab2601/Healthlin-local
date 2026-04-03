@@ -1,11 +1,16 @@
 import os
+import logging
+import threading
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 import config
 import models
 import orthanc_sync
+from events import user_changed
 from auth import auth_bp
 from proxy import proxy_bp
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_DIST = os.path.join(os.path.dirname(__file__), "..", "viewer", "dist")
 FRONTEND_DIST = os.getenv("FRONTEND_DIST", os.path.abspath(_DEFAULT_DIST))
@@ -21,6 +26,9 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(proxy_bp)
 
+    # Conecta subscribers ao signal de mudança de usuário
+    user_changed.connect(lambda sender, **kw: orthanc_sync.request_sync())
+
     # Valida que o diretório do banco existe antes de tentar criar/abrir
     db_dir = os.path.dirname(os.path.abspath(config.DB_PATH))
     if not os.path.isdir(db_dir):
@@ -31,6 +39,19 @@ def create_app():
 
     # Inicializa o banco
     models.init_db()
+
+    # Admin inicial — rápido (check + insert SQLite), necessário antes de servir
+    create_initial_admin()
+
+    # Orthanc sync — pode ser lento (file I/O + systemctl restart com timeout 30s),
+    # roda em background para não bloquear o boot do servidor
+    def _background_sync():
+        try:
+            orthanc_sync.sync_orthanc_users()
+        except Exception:
+            logger.exception("Falha no sync inicial do Orthanc (background)")
+
+    threading.Thread(target=_background_sync, daemon=True, name="orthanc-init-sync").start()
 
     @app.route("/api/health", methods=["GET"])
     def health():
@@ -80,7 +101,5 @@ def create_initial_admin():
 
 if __name__ == "__main__":
     app = create_app()
-    create_initial_admin()
-    orthanc_sync.sync_orthanc_users()
     app.run(host=config.HOST, port=config.PORT, debug=False)
 

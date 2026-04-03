@@ -93,6 +93,8 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
         return Response('{"error": "Orthanc indisponível"}', status=502, content_type="application/json")
     except requests.Timeout:
         return Response('{"error": "Timeout na conexão com Orthanc"}', status=504, content_type="application/json")
+    except requests.RequestException:
+        return Response('{"error": "Erro de comunicação com Orthanc"}', status=502, content_type="application/json")
 
 
 # ── Rotas de leitura ───────────────────────────────────

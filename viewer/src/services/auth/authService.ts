@@ -1,5 +1,5 @@
 import api from '../api'
-import type { LoginRequest, LoginResponse, User, ChangePasswordRequest, ApiUser } from '@/types/auth'
+import type { LoginRequest, LoginResponse, User, ChangePasswordRequest, PaginatedUsers, ListUsersParams } from '@/types/auth'
 
 export const authService = {
   async login(data: LoginRequest): Promise<LoginResponse> {
@@ -16,8 +16,8 @@ export const authService = {
     await api.put('/api/auth/change-password', data)
   },
 
-  async listUsers(): Promise<ApiUser[]> {
-    const res = await api.get<ApiUser[]>('/api/auth/users')
+  async listUsers(params: ListUsersParams = {}): Promise<PaginatedUsers> {
+    const res = await api.get<PaginatedUsers>('/api/auth/users', { params })
     return res.data
   },
 

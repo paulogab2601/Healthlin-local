@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, g
 import config
 import models
-import orthanc_sync
+from events import user_changed
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -50,11 +50,6 @@ def require_admin(f):
     return decorated
 
 
-def _sync_orthanc():
-    """Agenda sync do Orthanc com debounce — não bloqueia a resposta."""
-    orthanc_sync.request_sync()
-
-
 # ── Rotas ──────────────────────────────────────────────
 
 @auth_bp.route("/login", methods=["POST"])
@@ -79,7 +74,7 @@ def login():
     # Backfill do campo adicionado na migração (usuários criados antes do commit 35cfdb0)
     password_backfilled = models.update_password_encrypted(user["id"], password)
     if password_backfilled:
-        _sync_orthanc()
+        user_changed.send()
 
     token = create_token(user)
 
@@ -116,7 +111,26 @@ def me():
 @auth_bp.route("/users", methods=["GET"])
 @require_admin
 def list_all_users():
-    return jsonify(models.list_users())
+    page = request.args.get("page", 1, type=int)
+    per_page = min(request.args.get("per_page", 20, type=int), 100)
+    search = request.args.get("search", None, type=str)
+    role = request.args.get("role", None, type=str)
+    active_param = request.args.get("active", None, type=str)
+
+    active = None
+    if active_param is not None:
+        active = active_param.lower() in ("1", "true")
+
+    if role and role not in ("admin", "medico", "tecnico", "secretaria"):
+        return jsonify({"error": "Role inválida. Use: admin, medico, tecnico, secretaria"}), 400
+
+    return jsonify(models.list_users(
+        page=max(1, page),
+        per_page=per_page,
+        search=search,
+        role=role,
+        active=active,
+    ))
 
 
 @auth_bp.route("/users", methods=["POST"])
@@ -129,8 +143,8 @@ def create_user():
         return jsonify({"error": "Campos obrigatórios: name, council_type, council_number, password"}), 400
 
     role = data.get("role", "medico")
-    if role not in ("admin", "medico", "tecnico"):
-        return jsonify({"error": "Role inválida. Use: admin, medico, tecnico"}), 400
+    if role not in ("admin", "medico", "tecnico", "secretaria"):
+        return jsonify({"error": "Role inválida. Use: admin, medico, tecnico, secretaria"}), 400
 
     success, message = models.create_user(
         name=data["name"],
@@ -141,7 +155,7 @@ def create_user():
     )
 
     if success:
-        _sync_orthanc()
+        user_changed.send()
         return jsonify({"message": message}), 201
     return jsonify({"error": message}), 409
 
@@ -152,16 +166,18 @@ def delete_user(user_id):
     success, message = models.deactivate_user(user_id, requester_id=g.user["user_id"])
     if not success:
         return jsonify({"error": message}), 403
-    _sync_orthanc()
+    user_changed.send()
     return jsonify({"message": message})
 
 
 @auth_bp.route("/users/<int:user_id>/reactivate", methods=["PUT"])
 @require_admin
 def reactivate_user(user_id):
-    models.reactivate_user(user_id)
-    _sync_orthanc()
-    return jsonify({"message": "Usuário reativado"})
+    success, message = models.reactivate_user(user_id)
+    if not success:
+        return jsonify({"error": message}), 404
+    user_changed.send()
+    return jsonify({"message": message})
 
 
 @auth_bp.route("/change-password", methods=["PUT"])
@@ -185,6 +201,6 @@ def change_password():
     )
 
     if success:
-        _sync_orthanc()
+        user_changed.send()
         return jsonify({"message": message})
     return jsonify({"error": message}), 400

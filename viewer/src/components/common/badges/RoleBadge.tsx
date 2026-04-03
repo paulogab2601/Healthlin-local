@@ -4,6 +4,7 @@ const roleConfig: Record<UserRole, { label: string; className: string }> = {
   admin: { label: 'Admin', className: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
   medico: { label: 'Médico', className: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
   tecnico: { label: 'Técnico', className: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  secretaria: { label: 'Secretária', className: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
 }
 
 export function RoleBadge({ role }: { role: UserRole }) {

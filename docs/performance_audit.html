@@ -1,342 +1,415 @@
+﻿
 <!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Healthlin - Auditoria de Performance, Estabilidade e Arquitetura</title>
+  <title>Healthlin - Auditoria de Performance, Estabilidade e Arquitetura (Local)</title>
   <style>
-    body { font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #0d1526; color: #e7eefb; line-height: 1.45; }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 18px 60px; }
+    :root {
+      --bg: #0b1220;
+      --panel: #121c2f;
+      --panel-2: #16243d;
+      --text: #e6edf8;
+      --muted: #9eb0d0;
+      --line: #2d4063;
+      --critical: #ef4444;
+      --high: #f97316;
+      --medium: #eab308;
+      --low: #22c55e;
+      --info: #38bdf8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.48;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 18px 60px; }
     h1, h2, h3 { margin: 0 0 10px; }
     h1 { font-size: 28px; }
-    h2 { margin-top: 28px; border-bottom: 1px solid #2a3e62; padding-bottom: 8px; font-size: 21px; }
+    h2 { margin-top: 30px; border-bottom: 1px solid var(--line); padding-bottom: 8px; font-size: 22px; }
     h3 { font-size: 17px; }
     p { margin: 8px 0; }
-    .muted { color: #a6b5cf; }
-    .card { background: #131f36; border: 1px solid #2a3e62; border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
-    .issue { background: #162641; border: 1px solid #2a3e62; border-left: 6px solid #38bdf8; border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
-    .critical { border-left-color: #ef4444; }
-    .high { border-left-color: #f97316; }
-    .medium { border-left-color: #eab308; }
-    .low { border-left-color: #22c55e; }
-    .badge { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 8px; }
-    .b-critical { background: #5d1f1f; color: #ffd8d8; }
-    .b-high { background: #5c2e10; color: #ffe6cf; }
-    .b-medium { background: #50420b; color: #fff3c7; }
-    .b-low { background: #144026; color: #ddffe9; }
-    ul, ol { margin: 8px 0 4px 20px; }
+    .muted { color: var(--muted); }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 15px;
+      margin: 12px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .metric {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .issue {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-left: 6px solid var(--info);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin: 12px 0;
+    }
+    .critical { border-left-color: var(--critical); }
+    .high { border-left-color: var(--high); }
+    .medium { border-left-color: var(--medium); }
+    .low { border-left-color: var(--low); }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+    .b-critical { background: #4a1d1d; color: #ffd4d4; }
+    .b-high { background: #4b2a14; color: #ffe6d2; }
+    .b-medium { background: #473d0f; color: #fff0c2; }
+    .b-low { background: #123924; color: #d7ffe6; }
+    ul, ol { margin: 8px 0 6px 20px; }
     li { margin: 5px 0; }
-    code { background: #0c1a34; border: 1px solid #2c4a76; border-radius: 5px; padding: 1px 6px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    th, td { border: 1px solid #2a3e62; padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #10203a; }
+    code {
+      background: #0a1933;
+      border: 1px solid #2b4c7a;
+      border-radius: 5px;
+      padding: 1px 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #10203b; }
+    .small { font-size: 13px; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Auditoria de Performance, Estabilidade e Arquitetura - Healthlin (Local)</h1>
-    <p class="muted">Data: 2026-04-03 | Escopo: somente código local | Sem uso de servidor remoto</p>
+    <p class="muted">Data da auditoria: 03/04/2026 | Escopo: somente código local em <code>C:\Users\paulo\Desktop\Repositories\Healthlin-local</code> | Sem uso de SSH/SCP/servidor remoto</p>
 
-    <div class="card">
-      <h3>Resumo Geral de Performance</h3>
-      <p>Auditoria feita exclusivamente no repositório local em <code>C:\Users\paulo\Desktop\Repositories\Healthlin-local</code>, cobrindo backend Python, frontend React (código-fonte + build <code>dist</code>), integração entre camadas e uso do SQLite.</p>
-      <p><strong>Método:</strong> leitura integral dos módulos, inspeção dos fluxos de request/render, validações estáticas, medição de bundle local e execução controlada de startup local do backend.</p>
-      <ul>
-        <li>CRITICAL: 2</li>
-        <li>HIGH: 8</li>
-        <li>MEDIUM: 7</li>
-        <li>LOW: 2</li>
-      </ul>
-      <p><strong>Não verificável nesta auditoria local:</strong> throughput real em produção, latência de rede externa, uso de CPU/RAM em hardware remoto e comportamento fora deste código local.</p>
+    <h2>Resumo Geral de Performance</h2>
+    <div class="panel">
+      <p><strong>Escopo auditado de ponta a ponta:</strong> backend Python (<code>backend/*.py</code>), frontend React (<code>viewer/src</code>), build local (<code>viewer/dist</code>), integrações API/proxy, configuração local e fluxos de inicialização.</p>
+      <p><strong>Método:</strong> inspeção estática completa dos arquivos locais + validação de evidências por trecho de código + medição local do peso dos assets da build existente.</p>
+      <div class="grid">
+        <div class="metric"><strong>CRITICAL:</strong> 2</div>
+        <div class="metric"><strong>HIGH:</strong> 6</div>
+        <div class="metric"><strong>MEDIUM:</strong> 8</div>
+        <div class="metric"><strong>LOW:</strong> 2</div>
+      </div>
+      <p><strong>Achados de maior impacto:</strong> inconsistência de autorização com fallback para credencial global do Orthanc, restart do Orthanc acoplado a operações de usuário, gargalo de concorrência por workers síncronos e custo alto de carregamento do viewer.</p>
+      <p><strong>Não verificável nesta auditoria local:</strong> latência de infraestrutura remota, throughput real em produção, conteúdo de banco SQLite real (nenhum <code>*.db</code> presente no workspace), comportamento de respostas reais do Orthanc em runtime.</p>
     </div>
 
     <h2>Gargalos Críticos</h2>
 
     <div class="issue critical" id="C1">
-      <h3>[C1] Backend não inicializa localmente com configuração padrão <span class="badge b-critical">CRITICAL</span></h3>
+      <h3>[C1] Sessão JWT sem revalidação de usuário + fallback para credencial global do Orthanc <span class="badge b-critical">CRITICAL</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>backend/config.py:22</code>, <code>backend/models.py:37</code>, <code>backend/app.py:25</code>.</li>
-        <li><strong>Descrição objetiva:</strong> o caminho padrão do banco é absoluto Linux (<code>/opt/healthlin/backend/healthlin.db</code>) e não existe na máquina auditada.</li>
-        <li><strong>Causa técnica:</strong> fallback de <code>DB_PATH</code> sem estratégia portátil para ambiente local.</li>
-        <li><strong>Impacto real:</strong> indisponibilidade total local (startup falha).</li>
-        <li><strong>Cenário:</strong> execução local com <code>python backend/app.py</code>.</li>
-        <li><strong>Evidência no código:</strong> falha reproduzida localmente com <code>sqlite3.OperationalError: unable to open database file</code>.</li>
-        <li><strong>Recomendação (sem aplicar correção):</strong> fallback local relativo ao repositório e validação explícita de path no boot.</li>
+        <li><strong>Classificação:</strong> CRITICAL</li>
+        <li><strong>Local exato:</strong> <code>backend/auth.py (require_auth, require_admin)</code>, <code>backend/proxy.py (_get_orthanc_auth)</code>, <code>backend/models.py (get_user_credentials)</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado diretamente no código local.</li>
+        <li><strong>Descrição objetiva:</strong> as rotas protegidas validam só o token JWT; se a credencial do usuário não existir/estiver inativa, o proxy usa fallback para <code>ORTHANC_USER/ORTHANC_PASS</code>.</li>
+        <li><strong>Causa técnica:</strong> ausência de validação de <code>active</code> por request + política de fallback permissiva no proxy.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> inconsistência de autorização (conta desativada pode continuar operando com token válido) e risco de acesso com credencial global.</li>
+        <li><strong>Cenário em que aparece:</strong> usuário é desativado após login; token ainda não expirou.</li>
+        <li><strong>Evidência no código:</strong> <code>require_auth</code> não consulta DB; <code>get_user_credentials(... active = 1)</code> pode retornar <code>None</code>; em seguida <code>return (config.ORTHANC_USER, config.ORTHANC_PASS)</code>.</li>
+        <li><strong>Recomendação (sem aplicar correção):</strong> revalidar usuário ativo nas rotas autenticadas e negar acesso quando faltar credencial individual; limitar fallback global a fluxo explícito de serviço técnico.</li>
       </ul>
     </div>
 
     <div class="issue critical" id="C2">
-      <h3>[C2] Operações de auth/usuário disparam restart do Orthanc <span class="badge b-critical">CRITICAL</span></h3>
+      <h3>[C2] Operações de usuário acionam sync com restart do Orthanc <span class="badge b-critical">CRITICAL</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>backend/auth.py:53-56</code>, <code>backend/auth.py:82</code>, <code>backend/auth.py:144-145</code>, <code>backend/auth.py:155-156</code>, <code>backend/auth.py:163-164</code>, <code>backend/auth.py:188-189</code>, <code>backend/orthanc_sync.py:59-67</code>.</li>
-        <li><strong>Descrição objetiva:</strong> eventos de login/backfill e gestão de usuários acionam sync que reescreve credenciais e reinicia o serviço de imagens.</li>
-        <li><strong>Causa técnica:</strong> acoplamento direto de fluxo de usuário com operação pesada de infraestrutura.</li>
-        <li><strong>Impacto real:</strong> indisponibilidade temporária do Orthanc e erros 502/504 no viewer.</li>
-        <li><strong>Cenário:</strong> ações administrativas durante uso do visualizador.</li>
-        <li><strong>Evidência no código:</strong> <code>subprocess.run(["systemctl", "restart", "orthanc"], timeout=30)</code>.</li>
-        <li><strong>Recomendação:</strong> desacoplar via job serial assíncrono e evitar restart por operação unitária.</li>
+        <li><strong>Classificação:</strong> CRITICAL</li>
+        <li><strong>Local exato:</strong> <code>backend/auth.py</code>, <code>backend/app.py</code>, <code>backend/orthanc_sync.py</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado diretamente no código local.</li>
+        <li><strong>Descrição objetiva:</strong> login (backfill), criação, desativação, reativação e troca de senha disparam <code>user_changed</code>, que agenda sync e pode executar <code>systemctl restart orthanc</code>.</li>
+        <li><strong>Causa técnica:</strong> acoplamento direto entre fluxo de autenticação/usuário e operação de infraestrutura.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> janelas de indisponibilidade de imagens (502/504), perda de fluidez e risco de interrupção do fluxo.</li>
+        <li><strong>Cenário em que aparece:</strong> administração de usuários durante uso ativo do viewer.</li>
+        <li><strong>Evidência no código:</strong> <code>subprocess.run(["systemctl", "restart", "orthanc"], timeout=30)</code> em <code>sync_orthanc_users()</code>.</li>
+        <li><strong>Recomendação (sem aplicar correção):</strong> desacoplar por fila assíncrona, consolidar alterações e aplicar atualização sem restart por operação unitária.</li>
       </ul>
     </div>
-
     <h2>Problemas de Latência</h2>
 
     <div class="issue high" id="H1">
-      <h3>[H1] Stack bloqueante com servidor embutido e proxy síncrono <span class="badge b-high">HIGH</span></h3>
+      <h3>[H1] Gargalo de concorrência: proxy síncrono + workers limitados <span class="badge b-high">HIGH</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>backend/app.py:77</code>, <code>backend/healthlin-backend.service:10</code>, <code>backend/proxy.py:49-57</code>.</li>
-        <li><strong>Descrição objetiva:</strong> serviço sobe via <code>python app.py</code> e processa chamadas HTTP síncronas para Orthanc com timeout de até 120s.</li>
-        <li><strong>Causa técnica:</strong> ausência de servidor de produção com estratégia de workers + I/O bloqueante no request path.</li>
-        <li><strong>Impacto real:</strong> fila de requisições, aumento de latência e sensação de travamento sob concorrência.</li>
-        <li><strong>Cenário:</strong> múltiplos downloads DICOM simultâneos.</li>
-        <li><strong>Evidência no código:</strong> <code>requests.request(..., timeout=timeout, stream=True)</code> em rota HTTP.</li>
-        <li><strong>Recomendação:</strong> usar servidor WSGI/ASGI de produção com workers/limites.</li>
-      </ul>
-    </div>
-
-    <div class="issue high" id="H2">
-      <h3>[H2] Tratamento incompleto de exceções no proxy gateway <span class="badge b-high">HIGH</span></h3>
-      <ul>
-        <li><strong>Local exato:</strong> <code>backend/proxy.py:92-95</code>.</li>
-        <li><strong>Descrição objetiva:</strong> somente <code>ConnectionError</code> e <code>Timeout</code> são tratados; outras exceções de request podem gerar 500.</li>
-        <li><strong>Causa técnica:</strong> ausência de fallback para <code>requests.RequestException</code> genérico.</li>
-        <li><strong>Impacto real:</strong> falhas sem resposta consistente e pior experiência de erro no frontend.</li>
-        <li><strong>Cenário:</strong> erros de protocolo/upstream fora dos dois casos mapeados.</li>
-        <li><strong>Evidência no código:</strong> bloco <code>except</code> limitado no final de <code>proxy_request</code>.</li>
-        <li><strong>Recomendação:</strong> padronizar tratamento de exceções de gateway.</li>
+        <li><strong>Classificação:</strong> HIGH</li>
+        <li><strong>Local exato:</strong> <code>backend/healthlin-backend.service</code>, <code>backend/proxy.py</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> serviço usa Gunicorn padrão síncrono (<code>--workers 4</code>) e o proxy executa chamadas bloqueantes para o Orthanc, incluindo transferências longas.</li>
+        <li><strong>Causa técnica:</strong> cada request de download/processamento ocupa um worker inteiro até o término.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> aumento de fila, respostas lentas e travamentos perceptíveis sob múltiplos acessos simultâneos.</li>
+        <li><strong>Cenário em que aparece:</strong> vários downloads de DICOM e consultas em paralelo.</li>
+        <li><strong>Evidência no código:</strong> <code>requests.request(... stream=True, timeout=120)</code> + <code>--workers 4</code>.</li>
+        <li><strong>Recomendação:</strong> separar tráfego pesado, adotar estratégia de concorrência adequada e limite de transferência por rota.</li>
       </ul>
     </div>
 
     <div class="issue high" id="H3">
-      <h3>[H3] Dashboard carrega pacientes em massa sem paginação <span class="badge b-high">HIGH</span></h3>
+      <h3>[H3] Entrada do viewer com asset muito pesado e alias sem web workers <span class="badge b-high">HIGH</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>viewer/src/services/orthanc/patients/index.ts:6</code>, <code>viewer/src/hooks/orthanc/usePatients.ts:12-18</code>, <code>viewer/src/components/dashboard/patient-list/PatientList.tsx:65-90</code>.</li>
-        <li><strong>Descrição objetiva:</strong> consulta usa <code>/patients?expand</code> e renderiza lista completa client-side sem virtualização.</li>
-        <li><strong>Causa técnica:</strong> desenho de carga total (bulk) sem estratégia incremental.</li>
-        <li><strong>Impacto real:</strong> piora de tempo de carregamento e fluidez com crescimento de dados.</li>
-        <li><strong>Cenário:</strong> base com centenas/milhares de pacientes.</li>
-        <li><strong>Evidência no código:</strong> endpoint expand + tabela mapeada integralmente.</li>
-        <li><strong>Recomendação:</strong> paginação server-side, lazy load e virtualização.</li>
+        <li><strong>Classificação:</strong> HIGH</li>
+        <li><strong>Local exato:</strong> <code>viewer/vite.config.ts</code>, <code>viewer/dist/assets/cornerstone-init-CXRo3yXp.js</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código/build local.</li>
+        <li><strong>Descrição objetiva:</strong> a rota do viewer carrega chunk de ~3.85 MiB bruto e o alias força bundle <code>NoWebWorkers</code> do dicom-image-loader.</li>
+        <li><strong>Causa técnica:</strong> runtime de imagem concentrado em chunk grande + menor offload de decode para worker.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> tempo maior para abrir viewer, maior risco de jank em máquinas fracas e rede lenta.</li>
+        <li><strong>Cenário em que aparece:</strong> primeiro acesso ao viewer após login.</li>
+        <li><strong>Evidência no código:</strong> alias para <code>cornerstoneDICOMImageLoaderNoWebWorkers.bundle.min.js</code>; asset local medido em <code>4,036,245 bytes</code>.</li>
+        <li><strong>Recomendação:</strong> revisar estratégia de chunking e decode, priorizando worker real e redução do custo no caminho crítico.</li>
       </ul>
     </div>
 
     <div class="issue high" id="H4">
-      <h3>[H4] Respostas fora de ordem em estudos por paciente <span class="badge b-high">HIGH</span></h3>
+      <h3>[H4] Busca de usuários sem debounce/cancelamento gera tempestade de requests <span class="badge b-high">HIGH</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>viewer/src/hooks/orthanc/useStudies.ts:8-12</code>, <code>viewer/src/store/dashboard/index.ts:59-66</code>.</li>
-        <li><strong>Descrição objetiva:</strong> trocas rápidas de paciente disparam fetches sem cancelamento/versionamento.</li>
-        <li><strong>Causa técnica:</strong> ausência de controle de concorrência no fluxo <code>fetchStudies</code>.</li>
-        <li><strong>Impacto real:</strong> exames mostrados para paciente errado (inconsistência de interface).</li>
-        <li><strong>Cenário:</strong> cliques rápidos com latência variável entre requests.</li>
-        <li><strong>Evidência no código:</strong> não há <code>AbortController</code> nem token de versão nesse fluxo.</li>
-        <li><strong>Recomendação:</strong> cancelar request anterior e validar versão antes de gravar estado.</li>
+        <li><strong>Classificação:</strong> HIGH</li>
+        <li><strong>Local exato:</strong> <code>viewer/src/pages/admin/AdminUsersPage.tsx</code>, <code>backend/models.py (list_users)</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> cada tecla muda <code>search</code> e dispara nova listagem; não há debounce, abort de request anterior, nem controle de resposta fora de ordem.</li>
+        <li><strong>Causa técnica:</strong> <code>useEffect(() => fetchUsers(), [fetchUsers])</code> com dependência de <code>search</code> e sem coordenação assíncrona.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> latência percebida, consumo extra de CPU/DB e possível oscilação visual de resultados.</li>
+        <li><strong>Cenário em que aparece:</strong> digitação rápida com base de usuários maior.</li>
+        <li><strong>Evidência no código:</strong> <code>handleSearchChange</code> atualiza estado a cada tecla; backend executa <code>COUNT(*)</code> + <code>SELECT ... LIKE '%...%'</code> por requisição.</li>
+        <li><strong>Recomendação:</strong> implementar debounce, cancelamento por <code>AbortController</code> e versionamento da resposta.</li>
       </ul>
     </div>
 
     <h2>Problemas no Frontend</h2>
 
-    <div class="issue high" id="H5">
-      <h3>[H5] Viewer com custo alto de carregamento e decode no cliente <span class="badge b-high">HIGH</span></h3>
+    <div class="issue medium" id="M1">
+      <h3>[M1] Re-renders evitáveis por assinatura ampla do Zustand e filtros O(n) no render <span class="badge b-medium">MEDIUM</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>viewer/vite.config.ts:13-16</code>, <code>viewer/dist/assets/cornerstone-init-D8PD8TbF.js</code>.</li>
-        <li><strong>Descrição objetiva:</strong> alias usa bundle <code>NoWebWorkers</code>; chunk de runtime DICOM local mede ~3.85 MiB (3941.6 KiB bruto).</li>
-        <li><strong>Causa técnica:</strong> dependência pesada no caminho crítico do viewer e offload de decode limitado.</li>
-        <li><strong>Impacto real:</strong> maior tempo de entrada no viewer e risco de jank em máquinas fracas.</li>
-        <li><strong>Cenário:</strong> abertura inicial de estudo em hardware modesto.</li>
-        <li><strong>Evidência no código:</strong> alias explícito para <code>cornerstoneDICOMImageLoaderNoWebWorkers</code> + medição local do dist.</li>
-        <li><strong>Recomendação:</strong> reavaliar pipeline com workers e reduzir peso do bundle crítico.</li>
-      </ul>
-    </div>
-
-    <div class="issue high" id="H6">
-      <h3>[H6] Falhas silenciosas em ações administrativas de usuários <span class="badge b-high">HIGH</span></h3>
-      <ul>
-        <li><strong>Local exato:</strong> <code>viewer/src/pages/admin/AdminUsersPage.tsx:41-48</code>, <code>viewer/src/pages/admin/AdminUsersPage.tsx:66-70</code>.</li>
-        <li><strong>Descrição objetiva:</strong> listagem e reativação podem falhar sem mensagem consistente ao usuário.</li>
-        <li><strong>Causa técnica:</strong> ausência de <code>catch</code> em pontos críticos e feedback incompleto.</li>
-        <li><strong>Impacto real:</strong> operador perde confiança no estado exibido e repete ações desnecessárias.</li>
-        <li><strong>Cenário:</strong> timeout/falha backend durante administração.</li>
-        <li><strong>Evidência no código:</strong> <code>fetchUsers</code> sem branch de erro e <code>handleReactivate</code> sem tratamento.</li>
-        <li><strong>Recomendação:</strong> padronizar UX de erro com status por ação.</li>
+        <li><strong>Classificação:</strong> MEDIUM</li>
+        <li><strong>Local exato:</strong> <code>viewer/src/hooks/orthanc/usePatients.ts</code>, <code>viewer/src/hooks/orthanc/useStudies.ts</code>, <code>viewer/src/components/dashboard/search-bar/SearchBar.tsx</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> hooks usam <code>useDashboardStore()</code> sem seletor fino e filtram listas em cada render.</li>
+        <li><strong>Causa técnica:</strong> subscription ampla + ausência de memoização de derivação.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> degradação gradual de fluidez quando cresce volume de pacientes/estudos.</li>
+        <li><strong>Cenário em que aparece:</strong> dashboard com navegação intensa e filtros ativos.</li>
+        <li><strong>Evidência no código:</strong> uso direto de <code>patients.filter(...)</code> e <code>studies.filter(...)</code> dentro dos hooks.</li>
+        <li><strong>Recomendação:</strong> usar seletores mínimos e memoização dos filtros derivados.</li>
       </ul>
     </div>
 
     <div class="issue medium" id="M2">
-      <h3>[M2] Cache de metadados sem limite de memória <span class="badge b-medium">MEDIUM</span></h3>
+      <h3>[M2] Cache de metadados sem política de limite/evicção <span class="badge b-medium">MEDIUM</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>viewer/src/components/viewer/metadata-panel/MetadataPanel.tsx:27</code>, <code>viewer/src/components/viewer/metadata-panel/MetadataPanel.tsx:43</code>.</li>
-        <li><strong>Descrição objetiva:</strong> <code>Map</code> cresce por instância visitada sem expiração/evicção.</li>
-        <li><strong>Causa técnica:</strong> cache in-memory sem política de tamanho.</li>
-        <li><strong>Impacto real:</strong> crescimento gradual de memória em sessões longas.</li>
-        <li><strong>Cenário:</strong> navegação extensa por muitos exames.</li>
-        <li><strong>Evidência no código:</strong> apenas inserção no cache, sem remoção.</li>
-        <li><strong>Recomendação:</strong> adotar LRU/TTL e limite de itens.</li>
+        <li><strong>Classificação:</strong> MEDIUM</li>
+        <li><strong>Local exato:</strong> <code>viewer/src/components/viewer/metadata-panel/MetadataPanel.tsx</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> <code>Map&lt;instanceId, tags&gt;</code> cresce durante a sessão e nunca remove entradas.</li>
+        <li><strong>Causa técnica:</strong> cache em memória sem TTL/LRU/tamanho máximo.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> consumo crescente de memória em sessões longas de leitura.</li>
+        <li><strong>Cenário em que aparece:</strong> navegação por grande número de instâncias/exames.</li>
+        <li><strong>Evidência no código:</strong> apenas <code>cacheRef.current.set(...)</code>, sem rotina de limpeza.</li>
+        <li><strong>Recomendação:</strong> aplicar política de evicção (LRU/TTL) com limite explícito.</li>
       </ul>
     </div>
 
     <div class="issue medium" id="M3">
-      <h3>[M3] Rerenders e filtros O(n) em assinaturas amplas de store <span class="badge b-medium">MEDIUM</span></h3>
+      <h3>[M3] Navegação de frames sem prefetch e com recarga de stack por mudança <span class="badge b-medium">MEDIUM</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>viewer/src/hooks/orthanc/usePatients.ts:6-18</code>, <code>viewer/src/hooks/orthanc/useStudies.ts:6-31</code>, <code>viewer/src/components/dashboard/search-bar/SearchBar.tsx:5</code>.</li>
-        <li><strong>Descrição objetiva:</strong> dados derivados pesados são recalculados com frequência por dependência de estado amplo.</li>
-        <li><strong>Causa técnica:</strong> falta de seletores mínimos e memoização de filtros.</li>
-        <li><strong>Impacto real:</strong> perda de fluidez com volume alto de dados.</li>
-        <li><strong>Cenário:</strong> dashboard com grande número de pacientes/estudos.</li>
-        <li><strong>Evidência no código:</strong> filtros lineares executados no render dos hooks.</li>
-        <li><strong>Recomendação:</strong> seletor fino + memoização de coleções filtradas.</li>
+        <li><strong>Classificação:</strong> MEDIUM</li>
+        <li><strong>Local exato:</strong> <code>viewer/src/components/viewer/image-panel/ImagePanel.tsx</code>, <code>viewer/src/store/viewer/index.ts</code>, <code>viewer/src/components/viewer/dicom-canvas/DicomCanvas.tsx</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> cada mudança de frame atualiza <code>currentInstance</code> e aciona novo <code>setStack</code> no viewport.</li>
+        <li><strong>Causa técnica:</strong> pipeline orientado a troca de instância individual, sem prefetch local de vizinhos.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> sensação de atraso no scroll/slider em séries grandes.</li>
+        <li><strong>Cenário em que aparece:</strong> arraste rápido do slider em estudo com muitas imagens.</li>
+        <li><strong>Evidência no código:</strong> <code>setFrame -> currentInstance</code> e <code>await viewport.setStack(imageIds, 0)</code> por atualização.</li>
+        <li><strong>Recomendação:</strong> adotar prefetch/cache de imagens adjacentes e reduzir recarga completa da stack.</li>
       </ul>
     </div>
 
+    <div class="issue low" id="L2">
+      <h3>[L2] Código morto em hooks não utilizados aumenta custo de manutenção <span class="badge b-low">LOW</span></h3>
+      <ul>
+        <li><strong>Classificação:</strong> LOW</li>
+        <li><strong>Local exato:</strong> <code>viewer/src/hooks/viewer/useWindowLevel.ts</code>, <code>viewer/src/hooks/auth/useRequireAuth.ts</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado localmente (sem referências de uso).</li>
+        <li><strong>Descrição objetiva:</strong> hooks presentes no projeto sem uso ativo no fluxo atual.</li>
+        <li><strong>Causa técnica:</strong> evolução parcial da arquitetura sem limpeza de código órfão.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> aumenta complexidade cognitiva e risco de divergência futura.</li>
+        <li><strong>Cenário em que aparece:</strong> onboarding e refatorações de viewer/auth.</li>
+        <li><strong>Evidência no código:</strong> ausência de chamadas para esses hooks no restante de <code>viewer/src</code>.</li>
+        <li><strong>Recomendação:</strong> remover ou reintegrar com cobertura de uso e testes.</li>
+      </ul>
+    </div>
     <h2>Problemas no Backend Python</h2>
 
-    <div class="issue high" id="H7">
-      <h3>[H7] Endpoint de usuários sem paginação e sem filtros <span class="badge b-high">HIGH</span></h3>
+    <div class="issue high" id="H2">
+      <h3>[H2] Inicialização com efeitos colaterais duplicados por worker <span class="badge b-high">HIGH</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>backend/auth.py:116-120</code>, <code>backend/models.py:105-109</code>.</li>
-        <li><strong>Descrição objetiva:</strong> listagem retorna todos os usuários em payload único.</li>
-        <li><strong>Causa técnica:</strong> query full table sem <code>LIMIT/OFFSET</code>.</li>
-        <li><strong>Impacto real:</strong> latência e custo de serialização crescem com o volume.</li>
-        <li><strong>Cenário:</strong> expansão da base de usuários.</li>
-        <li><strong>Evidência no código:</strong> <code>SELECT ... FROM users</code> sem paginação.</li>
-        <li><strong>Recomendação:</strong> paginação, ordenação e filtros no endpoint.</li>
+        <li><strong>Classificação:</strong> HIGH</li>
+        <li><strong>Local exato:</strong> <code>backend/app.py (create_app)</code>, <code>backend/healthlin-backend.service</code>, <code>backend/orthanc_sync.py</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> cada worker executa <code>init_db()</code>, <code>create_initial_admin()</code> e thread de sync inicial.</li>
+        <li><strong>Causa técnica:</strong> rotina de bootstrap com tarefas operacionais dentro do ciclo de criação da aplicação web por processo.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> boot mais lento, risco de corrida na inicialização e variação de disponibilidade após restart.</li>
+        <li><strong>Cenário em que aparece:</strong> subida do serviço com <code>--workers 4</code>.</li>
+        <li><strong>Evidência no código:</strong> thread <code>orthanc-init-sync</code> criada em <code>create_app()</code>; locks de sync são apenas <code>threading.Lock</code> (não interprocesso).</li>
+        <li><strong>Recomendação:</strong> mover tarefas de migração/sync para job único de bootstrap fora dos workers HTTP.</li>
       </ul>
     </div>
 
     <div class="issue medium" id="M4">
-      <h3>[M4] Startup inclui tarefas síncronas antes do serviço ficar pronto <span class="badge b-medium">MEDIUM</span></h3>
+      <h3>[M4] Tratamento de erro incompleto na administração de usuários <span class="badge b-medium">MEDIUM</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>backend/app.py:75-77</code>.</li>
-        <li><strong>Descrição objetiva:</strong> criação de admin inicial e sync Orthanc rodam no caminho crítico de boot.</li>
-        <li><strong>Causa técnica:</strong> responsabilidades operacionais no startup do processo web.</li>
-        <li><strong>Impacto real:</strong> readiness mais lenta e maior janela de indisponibilidade no reinício.</li>
-        <li><strong>Cenário:</strong> restart com Orthanc lento ou indisponível.</li>
-        <li><strong>Evidência no código:</strong> chamadas síncronas imediatamente antes de <code>app.run</code>.</li>
-        <li><strong>Recomendação:</strong> mover para job pós-inicialização com monitoramento.</li>
+        <li><strong>Classificação:</strong> MEDIUM</li>
+        <li><strong>Local exato:</strong> <code>viewer/src/pages/admin/AdminUsersPage.tsx</code>, rotas <code>/api/auth/users</code> em <code>backend/auth.py</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> algumas falhas da camada API não geram feedback consistente ao operador.</li>
+        <li><strong>Causa técnica:</strong> ausência de <code>catch</code> em partes do fluxo de listagem/reativação.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> ações parecem “não responder”, com estado possivelmente desatualizado na tela.</li>
+        <li><strong>Cenário em que aparece:</strong> timeout/erro transitório durante gestão de usuários.</li>
+        <li><strong>Evidência no código:</strong> <code>fetchUsers</code> sem bloco de erro explícito para UI; <code>handleReactivate</code> sem tratamento de exceção.</li>
+        <li><strong>Recomendação:</strong> padronizar mensagens de falha e estados de erro por ação.</li>
+      </ul>
+    </div>
+
+    <div class="issue medium" id="M6">
+      <h3>[M6] Healthcheck superficial não valida dependências críticas <span class="badge b-medium">MEDIUM</span></h3>
+      <ul>
+        <li><strong>Classificação:</strong> MEDIUM</li>
+        <li><strong>Local exato:</strong> <code>backend/app.py (/api/health)</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> endpoint retorna sempre <code>{"status":"ok"}</code> sem validar SQLite/Orthanc.</li>
+        <li><strong>Causa técnica:</strong> ausência de checks de dependência no health endpoint.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> falso positivo de disponibilidade em falhas parciais.</li>
+        <li><strong>Cenário em que aparece:</strong> backend no ar, mas Orthanc indisponível.</li>
+        <li><strong>Evidência no código:</strong> retorno estático no handler de saúde.</li>
+        <li><strong>Recomendação:</strong> healthcheck composto (DB + proxy Orthanc + estado interno de sync) com status detalhado.</li>
       </ul>
     </div>
 
     <h2>Problemas no SQLite</h2>
 
-    <div class="issue high" id="H8">
-      <h3>[H8] Configuração SQLite mínima para concorrência real <span class="badge b-high">HIGH</span></h3>
+    <div class="issue high" id="H5">
+      <h3>[H5] Consulta de usuários com padrão que degrada com crescimento de dados <span class="badge b-high">HIGH</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>backend/models.py:36-39</code>.</li>
-        <li><strong>Descrição objetiva:</strong> conexão criada sem <code>busy_timeout</code>, sem WAL e sem política de contenção.</li>
-        <li><strong>Causa técnica:</strong> uso da configuração padrão do driver.</li>
-        <li><strong>Impacto real:</strong> risco de lock em escrita concorrente e falhas intermitentes.</li>
-        <li><strong>Cenário:</strong> requests simultâneos de auth/admin.</li>
-        <li><strong>Evidência no código:</strong> apenas <code>sqlite3.connect(config.DB_PATH)</code>.</li>
-        <li><strong>Recomendação:</strong> configurar timeout/journal e plano de migração para banco mais robusto ao escalar.</li>
+        <li><strong>Classificação:</strong> HIGH</li>
+        <li><strong>Local exato:</strong> <code>backend/models.py (list_users)</code>, schema em <code>init_db()</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> para cada listagem, executa <code>COUNT(*)</code> + <code>SELECT ... ORDER BY name</code>, com busca <code>LIKE '%termo%'</code>.</li>
+        <li><strong>Causa técnica:</strong> custo de varredura e ordenação aumenta com o volume; schema não declara índices para <code>role</code>/<code>active</code>/<code>name</code>.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> latência crescente no painel admin e maior uso de CPU com base maior.</li>
+        <li><strong>Cenário em que aparece:</strong> organização com muitos usuários e uso frequente de busca/filtro.</li>
+        <li><strong>Evidência no código:</strong> query dinâmica em <code>list_users</code> e schema com apenas <code>PRIMARY KEY</code> + <code>UNIQUE(council_type, council_number)</code>.</li>
+        <li><strong>Recomendação:</strong> revisar plano de indexação e estratégia de busca (ex.: índice apropriado ou FTS para texto).</li>
       </ul>
     </div>
 
-    <div class="issue medium" id="M1">
-      <h3>[M1] Migração executada a cada boot com captura genérica de erro <span class="badge b-medium">MEDIUM</span></h3>
+    <div class="issue medium" id="M5">
+      <h3>[M5] Conexão SQLite sem tuning explícito para concorrência/locks <span class="badge b-medium">MEDIUM</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>backend/models.py:59-62</code>.</li>
-        <li><strong>Descrição objetiva:</strong> <code>ALTER TABLE</code> sempre executado e qualquer erro é suprimido.</li>
-        <li><strong>Causa técnica:</strong> ausência de versionamento de schema e <code>except Exception: pass</code>.</li>
-        <li><strong>Impacto real:</strong> falhas reais de banco podem passar despercebidas.</li>
-        <li><strong>Cenário:</strong> lock/corrupção/permissão no arquivo DB durante inicialização.</li>
-        <li><strong>Evidência no código:</strong> captura ampla no bloco de migração.</li>
-        <li><strong>Recomendação:</strong> controlar versão de schema e tratar apenas erro esperado de coluna existente.</li>
+        <li><strong>Classificação:</strong> MEDIUM</li>
+        <li><strong>Local exato:</strong> <code>backend/models.py (get_db)</code></li>
+        <li><strong>Status de verificação:</strong> Fato no código; impacto quantitativo depende do volume (não verificável sem DB real nesta cópia local).</li>
+        <li><strong>Descrição objetiva:</strong> conexão criada com defaults e sem PRAGMAs explícitos de concorrência.</li>
+        <li><strong>Causa técnica:</strong> ausência de configuração específica de journal/timeout/padrão de escrita para a carga esperada.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> maior risco de lock e latência em cenários de escrita concorrente.</li>
+        <li><strong>Cenário em que aparece:</strong> múltiplas operações administrativas simultâneas.</li>
+        <li><strong>Evidência no código:</strong> apenas <code>sqlite3.connect(config.DB_PATH)</code>; não há <code>PRAGMA</code> no módulo.</li>
+        <li><strong>Recomendação:</strong> definir política explícita de concorrência e plano de evolução do banco quando o volume crescer.</li>
       </ul>
     </div>
 
     <h2>Problemas na Integração Frontend/Backend</h2>
 
-    <div class="issue high" id="H9">
-      <h3>[H9] UI depende de carregamento monolítico para abrir dashboard <span class="badge b-high">HIGH</span></h3>
+    <div class="issue high" id="H6">
+      <h3>[H6] Risco de inconsistência de contrato em <code>/patients/{id}/studies</code> <span class="badge b-high">HIGH</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>viewer/src/hooks/orthanc/usePatients.ts:8-10</code>, <code>viewer/src/store/dashboard/index.ts:42-56</code>.</li>
-        <li><strong>Descrição objetiva:</strong> sem payload inicial de pacientes a tela principal não progride para conteúdo útil.</li>
-        <li><strong>Causa técnica:</strong> falta de pipeline incremental e cache para primeira renderização.</li>
-        <li><strong>Impacto real:</strong> atraso perceptível na abertura do sistema e UX frágil em rede lenta.</li>
-        <li><strong>Cenário:</strong> backend lento / Orthanc com volume alto.</li>
-        <li><strong>Evidência no código:</strong> fetch obrigatório no mount para preencher lista base.</li>
-        <li><strong>Recomendação:</strong> adotar carregamento progressivo e cache de navegação.</li>
-      </ul>
-    </div>
-
-    <div class="issue medium" id="M5">
-      <h3>[M5] Cache global de credenciais sem limite e sem lock dedicado <span class="badge b-medium">MEDIUM</span></h3>
-      <ul>
-        <li><strong>Local exato:</strong> <code>backend/models.py:24-34</code>, <code>backend/models.py:153-175</code>.</li>
-        <li><strong>Descrição objetiva:</strong> cache de credenciais cresce por usuário autenticado, sem eviction por tamanho e sem sincronização explícita.</li>
-        <li><strong>Causa técnica:</strong> estrutura global simples com TTL temporal.</li>
-        <li><strong>Impacto real:</strong> aumento potencial de memória e comportamento menos previsível sob alta concorrência.</li>
-        <li><strong>Cenário:</strong> muitas contas com uso intercalado na mesma janela.</li>
-        <li><strong>Evidência no código:</strong> dicionário global sem política de capacidade.</li>
-        <li><strong>Recomendação:</strong> cache thread-safe com limite de itens e métricas.</li>
-      </ul>
-    </div>
-
-    <h2>Problemas de Estabilidade</h2>
-
-    <div class="issue medium" id="M6">
-      <h3>[M6] Interceptor 401 força reload completo e perda de estado <span class="badge b-medium">MEDIUM</span></h3>
-      <ul>
-        <li><strong>Local exato:</strong> <code>viewer/src/services/api.ts:24-28</code>.</li>
-        <li><strong>Descrição objetiva:</strong> qualquer 401 remove token e força navegação hard para login.</li>
-        <li><strong>Causa técnica:</strong> tratamento global agressivo sem distinção de fluxo.</li>
-        <li><strong>Impacto real:</strong> interrupção brusca da sessão e perda de contexto visual.</li>
-        <li><strong>Cenário:</strong> expiração de token com múltiplas requisições em paralelo.</li>
-        <li><strong>Evidência no código:</strong> uso de <code>window.location.href</code> no interceptor global.</li>
-        <li><strong>Recomendação:</strong> fluxo SPA controlado e tratamento de expiração mais granular.</li>
+        <li><strong>Classificação:</strong> HIGH</li>
+        <li><strong>Local exato:</strong> <code>viewer/src/services/orthanc/patients/index.ts</code>, <code>viewer/src/hooks/orthanc/useStudies.ts</code>, <code>viewer/src/components/dashboard/exam-list/ExamList.tsx</code>, <code>backend/proxy.py</code></li>
+        <li><strong>Status de verificação:</strong> <strong>Hipótese técnica</strong> (não verificável nesta auditoria local sem respostas reais do Orthanc).</li>
+        <li><strong>Descrição objetiva:</strong> frontend trata resposta como objetos de estudo completos, mas a chamada não envia <code>?expand</code> explicitamente.</li>
+        <li><strong>Causa técnica:</strong> ausência de normalização/validação do payload na borda de integração.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> possibilidade de quebra da listagem de exames se backend retornar apenas IDs.</li>
+        <li><strong>Cenário em que aparece:</strong> resposta parcial/incompatível da API de estudos do paciente.</li>
+        <li><strong>Evidência no código:</strong> consumo direto de <code>study.MainDicomTags</code> e <code>study.Series</code> sem guardas de estrutura.</li>
+        <li><strong>Recomendação:</strong> validar contrato na camada de serviço e normalizar resposta antes de renderizar.</li>
       </ul>
     </div>
 
     <div class="issue medium" id="M7">
-      <h3>[M7] Reativação de usuário pode retornar sucesso sem alterar dados <span class="badge b-medium">MEDIUM</span></h3>
+      <h3>[M7] Hydration da sessão desloga usuário em qualquer falha de <code>/me</code> <span class="badge b-medium">MEDIUM</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>backend/models.py:143-147</code>, <code>backend/auth.py:159-164</code>.</li>
-        <li><strong>Descrição objetiva:</strong> endpoint responde \"Usuário reativado\" sem verificar se o ID existe.</li>
-        <li><strong>Causa técnica:</strong> update sem validação de linhas afetadas.</li>
-        <li><strong>Impacto real:</strong> inconsistência funcional e diagnóstico incorreto para o usuário administrativo.</li>
-        <li><strong>Cenário:</strong> tentativa de reativar ID inválido.</li>
-        <li><strong>Evidência no código:</strong> retorno fixo no endpoint após chamada do model.</li>
-        <li><strong>Recomendação:</strong> validar resultado no banco e retornar 404 quando aplicável.</li>
-      </ul>
-    </div>
-
-    <h2>Problemas de Arquitetura</h2>
-
-    <div class="issue high" id="H10">
-      <h3>[H10] Acoplamento alto entre autenticação e infraestrutura Orthanc <span class="badge b-high">HIGH</span></h3>
-      <ul>
-        <li><strong>Local exato:</strong> <code>backend/auth.py</code>, <code>backend/orthanc_sync.py</code>.</li>
-        <li><strong>Descrição objetiva:</strong> rotas de auth/usuário controlam diretamente sincronização e restart de serviço externo.</li>
-        <li><strong>Causa técnica:</strong> mistura de responsabilidades entre camada de negócio e operação de infraestrutura.</li>
-        <li><strong>Impacto real:</strong> manutenção difícil, efeito cascata de falha e baixa escalabilidade operacional.</li>
-        <li><strong>Cenário:</strong> crescimento de operações administrativas ou mudança na política de autenticação.</li>
-        <li><strong>Evidência no código:</strong> chamadas recorrentes a <code>orthanc_sync.request_sync()</code> em múltiplas rotas.</li>
-        <li><strong>Recomendação:</strong> separar em serviço assíncrono/event-driven.</li>
+        <li><strong>Classificação:</strong> MEDIUM</li>
+        <li><strong>Local exato:</strong> <code>viewer/src/store/auth/index.ts (loadMe)</code>, <code>viewer/src/App.tsx (AppBoot)</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> erro de rede/timeout em <code>/api/auth/me</code> resulta em <code>logout()</code> automático.</li>
+        <li><strong>Causa técnica:</strong> tratamento genérico no <code>catch</code>, sem distinguir erro de autenticação de indisponibilidade transitória.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> perda de sessão e experiência inconsistente em falhas temporárias da API.</li>
+        <li><strong>Cenário em que aparece:</strong> frontend abre antes do backend estar pronto ou em oscilação de rede local.</li>
+        <li><strong>Evidência no código:</strong> <code>catch { get().logout(); set({ isHydrating: false }) }</code>.</li>
+        <li><strong>Recomendação:</strong> separar erro de autenticação (401) de erro transitório (rede/5xx) e preservar sessão quando apropriado.</li>
       </ul>
     </div>
 
     <div class="issue low" id="L1">
-      <h3>[L1] Inconsistência de nomenclatura (<code>Ortahnc</code>) reduz manutenibilidade <span class="badge b-low">LOW</span></h3>
+      <h3>[L1] Inconsistência de nomenclatura <code>Ortahnc</code> x <code>Orthanc</code> <span class="badge b-low">LOW</span></h3>
       <ul>
-        <li><strong>Local exato:</strong> <code>viewer/src/store/dashboard/index.ts:20</code>, <code>viewer/src/store/viewer/index.ts:39</code> e usos derivados.</li>
-        <li><strong>Descrição objetiva:</strong> estado offline possui typo recorrente.</li>
-        <li><strong>Causa técnica:</strong> padronização de naming incompleta.</li>
-        <li><strong>Impacto real:</strong> dificuldade de manutenção e maior chance de erro em refatorações.</li>
-        <li><strong>Cenário:</strong> onboarding e evolução do código.</li>
-        <li><strong>Evidência no código:</strong> ocorrências repetidas de <code>isOrtahncOffline</code>.</li>
-        <li><strong>Recomendação:</strong> renomeação gradual e padronizada.</li>
+        <li><strong>Classificação:</strong> LOW</li>
+        <li><strong>Local exato:</strong> stores e hooks em <code>viewer/src/store/*</code> e <code>viewer/src/hooks/orthanc/*</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> estado de offline usa typo recorrente (<code>isOrtahncOffline</code>).</li>
+        <li><strong>Causa técnica:</strong> padronização incompleta de naming.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> baixo impacto direto em runtime, mas eleva risco de erro em manutenção futura.</li>
+        <li><strong>Cenário em que aparece:</strong> refatorações, onboarding e novas integrações.</li>
+        <li><strong>Evidência no código:</strong> múltiplas ocorrências com grafia divergente.</li>
+        <li><strong>Recomendação:</strong> unificar nomenclatura em mudança coordenada (com tipagem e testes).</li>
+      </ul>
+    </div>
+    <h2>Problemas de Estabilidade</h2>
+
+    <div class="issue medium" id="M8">
+      <h3>[M8] Alto acoplamento entre autenticação, proxy e operação do Orthanc <span class="badge b-medium">MEDIUM</span></h3>
+      <ul>
+        <li><strong>Classificação:</strong> MEDIUM</li>
+        <li><strong>Local exato:</strong> <code>backend/auth.py</code>, <code>backend/proxy.py</code>, <code>backend/orthanc_sync.py</code>, <code>backend/app.py</code></li>
+        <li><strong>Status de verificação:</strong> Fato observado no código local.</li>
+        <li><strong>Descrição objetiva:</strong> decisões de autenticação e credencial de usuário impactam diretamente restart/sync da infraestrutura de imagem no mesmo processo web.</li>
+        <li><strong>Causa técnica:</strong> responsabilidades de domínio e operação concentradas nos mesmos módulos/rotas.</li>
+        <li><strong>Impacto real no usuário/sistema:</strong> maior superfície de falha, manutenção mais difícil e menor previsibilidade operacional.</li>
+        <li><strong>Cenário em que aparece:</strong> crescimento de usuários, novas regras de acesso, manutenção de Orthanc.</li>
+        <li><strong>Evidência no código:</strong> sinal <code>user_changed</code> conectado em <code>create_app()</code> e consumido para operação de sistema (<code>systemctl</code>).</li>
+        <li><strong>Recomendação:</strong> separar camadas (authz, sync de credenciais, operação de serviço) com fronteiras claras e observabilidade.</li>
       </ul>
     </div>
 
-    <div class="issue low" id="L2">
-      <h3>[L2] Healthcheck superficial não valida dependências críticas <span class="badge b-low">LOW</span></h3>
+    <h2>Problemas de Arquitetura</h2>
+    <div class="panel">
+      <p>Os problemas estruturais mais relevantes para manutenção e evolução são:</p>
       <ul>
-        <li><strong>Local exato:</strong> <code>backend/app.py:27-29</code>.</li>
-        <li><strong>Descrição objetiva:</strong> endpoint <code>/api/health</code> retorna <code>{"status":"ok"}</code> sem testar DB/Orthanc.</li>
-        <li><strong>Causa técnica:</strong> healthcheck sem profundidade operacional.</li>
-        <li><strong>Impacto real:</strong> falso positivo de disponibilidade durante falhas parciais.</li>
-        <li><strong>Cenário:</strong> backend ativo, mas dependências indisponíveis.</li>
-        <li><strong>Evidência no código:</strong> retorno estático sem verificação de dependências.</li>
-        <li><strong>Recomendação:</strong> healthchecks por componente com status detalhado.</li>
+        <li><strong>Acoplamento de camadas:</strong> evidenciado em <a href="#M8">M8</a> e <a href="#C2">C2</a>.</li>
+        <li><strong>Efeitos colaterais de bootstrap por worker:</strong> evidenciado em <a href="#H2">H2</a>.</li>
+        <li><strong>Inconsistências de contrato e naming:</strong> evidenciado em <a href="#H6">H6</a> e <a href="#L1">L1</a>.</li>
       </ul>
+      <p class="small muted">Esta seção referencia achados já detalhados para evitar duplicidade de diagnóstico.</p>
     </div>
 
     <h2>Riscos de Escalabilidade</h2>
@@ -351,77 +424,125 @@
       </thead>
       <tbody>
         <tr>
-          <td>Carga de pacientes em massa</td>
+          <td>Workers HTTP bloqueados por transferência de imagem</td>
           <td>HIGH</td>
-          <td>Custo de rede/render cresce linearmente e degrada a UX.</td>
-          <td><code>/patients?expand</code> + render completo em tabela.</td>
+          <td>Capacidade efetiva limitada por número de workers ocupados por I/O de longa duração.</td>
+          <td><a href="#H1">H1</a></td>
         </tr>
         <tr>
-          <td>Listagem de usuários sem paginação</td>
+          <td>Painel admin com buscas frequentes e query cara</td>
           <td>HIGH</td>
-          <td>Payload e tempo de resposta aumentam com o total de usuários.</td>
-          <td><code>SELECT ... FROM users</code> sem <code>LIMIT</code>.</td>
+          <td>Custo de CPU/latência cresce rapidamente com número de usuários e teclas por busca.</td>
+          <td><a href="#H4">H4</a>, <a href="#H5">H5</a></td>
         </tr>
         <tr>
-          <td>SQLite padrão sem contenção</td>
+          <td>Carga inicial do viewer em bundle grande</td>
           <td>HIGH</td>
-          <td>Maior chance de lock em escrita concorrente.</td>
-          <td>Conexão sem busy_timeout/WAL.</td>
+          <td>Mais tempo de entrada e maior sensibilidade a hardware/rede fracos.</td>
+          <td><a href="#H3">H3</a></td>
         </tr>
         <tr>
-          <td>Auth acoplada a restart de Orthanc</td>
-          <td>CRITICAL</td>
-          <td>Ações administrativas impactam disponibilidade global.</td>
-          <td><code>systemctl restart orthanc</code> no fluxo da API.</td>
+          <td>Cache sem limite no frontend</td>
+          <td>MEDIUM</td>
+          <td>Memória cresce ao longo da sessão.</td>
+          <td><a href="#M2">M2</a></td>
+        </tr>
+        <tr>
+          <td>Conexão SQLite sem tuning explícito</td>
+          <td>MEDIUM</td>
+          <td>Maior suscetibilidade a lock sob concorrência de escrita.</td>
+          <td><a href="#M5">M5</a></td>
         </tr>
       </tbody>
     </table>
 
     <h2>Cenários de Falha (Simulação Lógica com Base no Código Local)</h2>
-    <div class="card">
-      <ul>
-        <li><strong>Internet/rede lenta:</strong> abertura do viewer piora por chunk pesado e decode no cliente (H5).</li>
-        <li><strong>API indisponível:</strong> dashboard depende de carga monolítica inicial; admin pode falhar sem feedback robusto (H6, H9).</li>
-        <li><strong>Falha parcial de resposta:</strong> proxy sem tratamento genérico pode retornar 500 não padronizado (H2).</li>
-        <li><strong>Banco bloqueado:</strong> ausência de <code>busy_timeout</code> aumenta risco de lock sob concorrência (H8).</li>
-        <li><strong>Dados incompletos:</strong> reativação pode retornar sucesso falso (M7).</li>
-        <li><strong>Alto volume de registros:</strong> degradação forte por ausência de paginação/virtualização (H3, H7).</li>
-        <li><strong>Requests simultâneos:</strong> stack síncrona com servidor embutido gera filas e lentidão (H1).</li>
-        <li><strong>Frontend antes do backend pronto:</strong> bootstrap de auth pode redirecionar e perder contexto de sessão (M6).</li>
-        <li><strong>Erro de autenticação:</strong> 401 global aciona reload completo da SPA (M6).</li>
-        <li><strong>Timeout/exceção inesperada:</strong> apenas subset de exceções é tratado no gateway (H2).</li>
-      </ul>
-    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Cenário</th>
+          <th>Comportamento esperado pelo código atual</th>
+          <th>Impacto</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Internet/rede local lenta</td>
+          <td>Viewer tende a abrir com atraso por chunk grande e pipeline de imagem pesado.</td>
+          <td>UX lenta, sensação de travamento inicial.</td>
+          <td>Fato inferido de código/build local</td>
+        </tr>
+        <tr>
+          <td>API indisponível no boot do frontend</td>
+          <td><code>loadMe()</code> falha e executa logout imediato.</td>
+          <td>Perda de sessão e redirecionamento inesperado.</td>
+          <td>Fato observado no código</td>
+        </tr>
+        <tr>
+          <td>Orthanc indisponível temporariamente</td>
+          <td>Proxy retorna 502/504; viewer entra em estado offline.</td>
+          <td>Interrupção do fluxo de visualização.</td>
+          <td>Fato observado no código</td>
+        </tr>
+        <tr>
+          <td>Banco bloqueado sob escrita concorrente</td>
+          <td>Sem política explícita de concorrência além default do driver.</td>
+          <td>Possíveis latências/falhas intermitentes.</td>
+          <td>Hipótese técnica (depende de carga real)</td>
+        </tr>
+        <tr>
+          <td>Dados incompletos no endpoint de estudos por paciente</td>
+          <td>UI pode tentar acessar campos não existentes no objeto esperado.</td>
+          <td>Risco de erro funcional na lista de exames.</td>
+          <td>Hipótese técnica não verificável localmente</td>
+        </tr>
+        <tr>
+          <td>Requests simultâneos de imagem</td>
+          <td>Workers podem saturar por chamadas bloqueantes no proxy.</td>
+          <td>Fila e latência alta para outros usuários.</td>
+          <td>Fato inferido de arquitetura local</td>
+        </tr>
+        <tr>
+          <td>Usuário desativado com token ainda válido</td>
+          <td>JWT continua aceito; fluxo de credencial pode cair no fallback global.</td>
+          <td>Inconsistência crítica de autorização.</td>
+          <td>Fato observado no código</td>
+        </tr>
+      </tbody>
+    </table>
 
     <h2>Recomendações de Melhoria</h2>
-    <div class="card">
-      <h3>Prioridade imediata</h3>
+    <div class="panel">
+      <h3>Prioridade imediata (risco crítico/alto)</h3>
       <ol>
-        <li>Tornar <code>DB_PATH</code> portátil para execução local e validar dependências no startup.</li>
-        <li>Remover restart de Orthanc do fluxo de auth; usar pipeline assíncrono serializado.</li>
-        <li>Migrar execução para servidor de produção com workers e limites por rota.</li>
-        <li>Implementar paginação/carregamento incremental em pacientes e usuários.</li>
+        <li>Bloquear fallback global de credencial para sessões de usuário e revalidar usuário ativo em toda rota autenticada.</li>
+        <li>Remover restart do Orthanc do caminho de operações de usuário; usar fila assíncrona com consolidação.</li>
+        <li>Mitigar gargalo do proxy (concorrência/workers/rota de transferência) para evitar saturação com múltiplos viewers.</li>
+        <li>Debounce + cancelamento na busca de usuários e proteção contra respostas fora de ordem.</li>
       </ol>
-      <h3>Prioridade alta</h3>
+
+      <h3>Prioridade alta (estabilidade e escala)</h3>
       <ol>
-        <li>Adicionar cancelamento/versionamento em <code>fetchStudies</code>.</li>
-        <li>Revisar pipeline do viewer para web workers e menor custo de bundle crítico.</li>
-        <li>Padronizar tratamento de erro no proxy e nos fluxos administrativos.</li>
-        <li>Configurar SQLite para concorrência segura e planejar evolução de persistência.</li>
+        <li>Revisar estratégia de build do viewer (peso de chunk e uso de workers de decode).</li>
+        <li>Revisar queries de listagem de usuários (busca, ordenação e indexação condizente com crescimento).</li>
+        <li>Criar healthcheck composto para DB + Orthanc + estado interno de sync.</li>
+        <li>Definir política explícita de concorrência SQLite e plano de evolução para maior escala.</li>
       </ol>
-      <h3>Prioridade contínua</h3>
+
+      <h3>Prioridade contínua (manutenção)</h3>
       <ol>
-        <li>Aplicar políticas de eviction em caches de frontend/backend.</li>
-        <li>Reduzir rerenders com seletores finos e memoização.</li>
-        <li>Adicionar testes automatizados para auth/proxy/dashboard/viewer.</li>
+        <li>Aplicar limites de cache em memória no frontend.</li>
+        <li>Reduzir assinaturas amplas de store e custo de filtros no render.</li>
+        <li>Eliminar código morto e inconsistências de nomenclatura para reduzir dívida técnica.</li>
       </ol>
     </div>
 
     <h2>Validação Final</h2>
-    <div class="card">
-      <p><strong>Fatos observados:</strong> todos os achados foram extraídos do código local e das execuções locais realizadas nesta auditoria.</p>
-      <p><strong>Hipóteses explicitadas:</strong> impactos quantitativos de produção (RPS, CPU, latência de infraestrutura externa) permanecem não verificáveis nesta auditoria local.</p>
-      <p><strong>Escopo respeitado:</strong> nenhuma análise remota foi realizada; nenhuma conclusão depende de servidor externo.</p>
+    <div class="panel">
+      <p><strong>Fatos observados:</strong> todos os achados classificados como “fato” foram derivados de inspeção direta do código local e dos artefatos locais de build.</p>
+      <p><strong>Hipóteses explicitadas:</strong> cenários marcados como hipótese dependem de resposta runtime do Orthanc e/ou volume real de dados, inexistentes nesta cópia local.</p>
+      <p><strong>Escopo respeitado:</strong> nenhuma conclusão depende de acesso ao servidor remoto; nenhuma ação foi executada em ambiente externo.</p>
     </div>
   </div>
 </body>

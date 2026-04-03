@@ -7,7 +7,11 @@ Wants=orthanc.service
 Type=simple
 User=root
 WorkingDirectory=/opt/healthlin/backend
-ExecStart=/opt/healthlin/venv/bin/python app.py
+ExecStart=/opt/healthlin/venv/bin/gunicorn \
+    --workers 4 \
+    --timeout 130 \
+    --bind 0.0.0.0:5000 \
+    "app:create_app()"
 Restart=always
 RestartSec=5
 
