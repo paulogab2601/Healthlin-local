@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useViewerStore } from '@/store/viewer'
 import { instancesService } from '@/services/orthanc/instances'
 import type { SimplifiedTags } from '@/types/orthanc'
@@ -18,17 +18,43 @@ const DISPLAYED_TAGS: { key: keyof SimplifiedTags; label: string }[] = [
   { key: 'KVP', label: 'KV' },
 ]
 
+const DEBOUNCE_MS = 300
+
 export function MetadataPanel() {
   const currentInstance = useViewerStore((s) => s.currentInstance)
   const [tags, setTags] = useState<SimplifiedTags | null>(null)
   const [hasError, setHasError] = useState(false)
+  const cacheRef = useRef<Map<string, SimplifiedTags>>(new Map())
 
   useEffect(() => {
     if (!currentInstance) { setTags(null); setHasError(false); return }
-    setHasError(false)
-    instancesService.getSimplifiedTags(currentInstance.ID)
-      .then((data) => { setTags(data); setHasError(false) })
-      .catch(() => { setTags(null); setHasError(true) })
+
+    const instanceId = currentInstance.ID
+
+    // Cache hit — skip network
+    const cached = cacheRef.current.get(instanceId)
+    if (cached) { setTags(cached); setHasError(false); return }
+
+    const abortController = new AbortController()
+
+    const timer = setTimeout(() => {
+      instancesService.getSimplifiedTags(instanceId, abortController.signal)
+        .then((data) => {
+          cacheRef.current.set(instanceId, data)
+          setTags(data)
+          setHasError(false)
+        })
+        .catch((err) => {
+          if (abortController.signal.aborted) return
+          setTags(null)
+          setHasError(true)
+        })
+    }, DEBOUNCE_MS)
+
+    return () => {
+      clearTimeout(timer)
+      abortController.abort()
+    }
   }, [currentInstance])
 
   return (

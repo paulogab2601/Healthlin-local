@@ -2,15 +2,35 @@ import sqlite3
 import bcrypt
 import hashlib
 import base64
+import time
 from datetime import datetime
 from cryptography.fernet import Fernet
 import config
 
+# ── Cipher singleton (JWT_SECRET não muda em runtime) ──
+_cipher_instance = None
+
 
 def _get_cipher():
-    """Deriva uma chave Fernet determinística a partir do JWT_SECRET."""
-    key_bytes = hashlib.sha256(config.JWT_SECRET.encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(key_bytes))
+    """Retorna (ou cria) instância Fernet derivada do JWT_SECRET."""
+    global _cipher_instance
+    if _cipher_instance is None:
+        key_bytes = hashlib.sha256(config.JWT_SECRET.encode()).digest()
+        _cipher_instance = Fernet(base64.urlsafe_b64encode(key_bytes))
+    return _cipher_instance
+
+
+# ── Cache de credenciais com TTL ──
+_creds_cache: dict[int, tuple[float, tuple[str, str] | None]] = {}
+_CREDS_TTL = 60  # segundos
+
+
+def invalidate_credentials_cache(user_id: int | None = None):
+    """Remove entradas do cache de credenciais. Sem argumento limpa tudo."""
+    if user_id is None:
+        _creds_cache.clear()
+    else:
+        _creds_cache.pop(user_id, None)
 
 
 def get_db():
@@ -128,7 +148,13 @@ def reactivate_user(user_id):
 
 
 def get_user_credentials(user_id):
-    """Retorna (council_number, senha_plain) para autenticação no Orthanc, ou None."""
+    """Retorna (council_number, senha_plain) para autenticação no Orthanc, ou None.
+    Resultado cacheado por até _CREDS_TTL segundos para evitar query + decrypt a cada request."""
+    now = time.monotonic()
+    cached = _creds_cache.get(user_id)
+    if cached and cached[0] > now:
+        return cached[1]
+
     conn = get_db()
     user = conn.execute(
         "SELECT council_number, password_encrypted FROM users WHERE id = ? AND active = 1",
@@ -137,11 +163,15 @@ def get_user_credentials(user_id):
     conn.close()
 
     if not user or not user["password_encrypted"]:
+        _creds_cache[user_id] = (now + _CREDS_TTL, None)
         return None
     try:
         password = _get_cipher().decrypt(user["password_encrypted"].encode()).decode()
-        return (user["council_number"], password)
+        result = (user["council_number"], password)
+        _creds_cache[user_id] = (now + _CREDS_TTL, result)
+        return result
     except Exception:
+        _creds_cache[user_id] = (now + _CREDS_TTL, None)
         return None
 
 
@@ -165,17 +195,23 @@ def list_users_with_credentials():
     return result
 
 
-def update_password_encrypted(user_id: int, password: str) -> None:
+def update_password_encrypted(user_id: int, password: str) -> bool:
     """Preenche password_encrypted quando está NULL (backfill pós-migração).
-    Não sobrescreve se já estiver preenchido."""
+    Não sobrescreve se já estiver preenchido.
+    Retorna True quando o backfill realmente alterou o registro."""
     encrypted = _get_cipher().encrypt(password.encode()).decode()
     conn = get_db()
+    before_changes = conn.total_changes
     conn.execute(
         "UPDATE users SET password_encrypted = ? WHERE id = ? AND password_encrypted IS NULL",
         (encrypted, user_id),
     )
     conn.commit()
+    updated = conn.total_changes > before_changes
     conn.close()
+    if updated:
+        invalidate_credentials_cache(user_id)
+    return updated
 
 
 def change_password(user_id, current_password, new_password):
@@ -204,4 +240,5 @@ def change_password(user_id, current_password, new_password):
     )
     conn.commit()
     conn.close()
+    invalidate_credentials_cache(user_id)
     return True, "Senha alterada com sucesso"

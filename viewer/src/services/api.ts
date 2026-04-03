@@ -3,6 +3,7 @@ import axios from 'axios'
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '',
   headers: { 'Content-Type': 'application/json' },
+  timeout: 15_000,
 })
 
 // Injeta token JWT em todas as requisições
@@ -27,7 +28,8 @@ api.interceptors.response.use(
       }
     }
 
-    if (status === 502 || status === 504) {
+    const isNetworkError = !error.response || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK'
+    if (isNetworkError || status === 502 || status === 504) {
       window.dispatchEvent(new CustomEvent('orthanc:offline'))
     }
 

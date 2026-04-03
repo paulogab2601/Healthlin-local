@@ -6,7 +6,7 @@ import { formatPatientName, formatDate } from '@/utils/format'
 
 export function PatientList() {
   const { patients, isLoading, isOrtahncOffline, refetch } = usePatients()
-  const { selectedPatientId, selectPatient, fetchStudies } = useDashboardStore()
+  const { selectedPatientId, selectPatient } = useDashboardStore()
 
   if (isOrtahncOffline) {
     return <ConnectionError onRetry={refetch} />
@@ -34,7 +34,6 @@ export function PatientList() {
       return
     }
     selectPatient(id)
-    fetchStudies(id)
   }
 
   return (

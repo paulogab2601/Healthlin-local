@@ -38,12 +38,13 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   fetchPatients: async () => {
     set({ isLoading: true, isOrtahncOffline: false })
     try {
-      const ids = await patientsService.list()
-      const patients = await Promise.all(ids.map((id) => patientsService.get(id)))
+      const patients = await patientsService.list()
       set({ patients, isLoading: false })
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status
-      if (status === 502 || status === 504) {
+      const axiosErr = err as { response?: { status?: number }; code?: string }
+      const status = axiosErr?.response?.status
+      const isNetworkError = !axiosErr?.response || axiosErr.code === 'ECONNABORTED' || axiosErr.code === 'ERR_NETWORK'
+      if (isNetworkError || status === 502 || status === 504) {
         set({ isOrtahncOffline: true })
       }
       set({ isLoading: false })

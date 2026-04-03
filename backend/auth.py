@@ -1,6 +1,5 @@
 import jwt
 import functools
-import threading
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, g
 import config
@@ -52,8 +51,8 @@ def require_admin(f):
 
 
 def _sync_orthanc():
-    """Dispara o sync do Orthanc em background para não bloquear a resposta."""
-    threading.Thread(target=orthanc_sync.sync_orthanc_users, daemon=True).start()
+    """Agenda sync do Orthanc com debounce — não bloqueia a resposta."""
+    orthanc_sync.request_sync()
 
 
 # ── Rotas ──────────────────────────────────────────────
@@ -78,7 +77,9 @@ def login():
         return jsonify({"error": "Credenciais inválidas"}), 401
 
     # Backfill do campo adicionado na migração (usuários criados antes do commit 35cfdb0)
-    models.update_password_encrypted(user["id"], password)
+    password_backfilled = models.update_password_encrypted(user["id"], password)
+    if password_backfilled:
+        _sync_orthanc()
 
     token = create_token(user)
 

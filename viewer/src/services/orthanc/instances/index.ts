@@ -7,8 +7,8 @@ export const instancesService = {
     return res.data
   },
 
-  async getSimplifiedTags(id: string): Promise<SimplifiedTags> {
-    const res = await api.get<SimplifiedTags>(`/api/orthanc/instances/${id}/simplified-tags`)
+  async getSimplifiedTags(id: string, signal?: AbortSignal): Promise<SimplifiedTags> {
+    const res = await api.get<SimplifiedTags>(`/api/orthanc/instances/${id}/simplified-tags`, { signal })
     return res.data
   },
 

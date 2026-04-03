@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Types } from '@cornerstonejs/core'
+import type { ToolMode } from '@/types/viewer'
 
 interface IToolGroup {
   addTool: (toolName: string) => void
   addViewport: (viewportId: string, renderingEngineId: string) => void
   setToolActive: (toolName: string, options?: { bindings?: Array<{ mouseButton: number }> }) => void
+  setToolPassive: (toolName: string, options?: { removeAllBindings?: boolean }) => void
 }
 
 interface IToolClass {
@@ -62,6 +64,25 @@ let _initError: Error | null = null
 
 let _workerManager: IDicomWorkerManager | null = null
 let _toolsApi: IToolsApi | null = null
+
+const PRIMARY_TOOLS: ToolMode[] = [
+  'Pan',
+  'Zoom',
+  'WindowLevel',
+  'Length',
+  'Angle',
+  'RectangleROI',
+]
+
+function setPrimaryTool(toolGroup: IToolGroup, toolName: string): void {
+  PRIMARY_TOOLS.forEach((name) => {
+    if (name !== toolName) {
+      toolGroup.setToolPassive(name, { removeAllBindings: true })
+    }
+  })
+
+  toolGroup.setToolActive(toolName, { bindings: [{ mouseButton: 1 }] })
+}
 
 async function ensureCornerstoneInitialized(): Promise<void> {
   if (_initialized && _engine && _toolGroup) {
@@ -168,7 +189,7 @@ async function ensureCornerstoneInitialized(): Promise<void> {
       }
     })
 
-    group.setToolActive(WindowLevelTool.toolName, { bindings: [{ mouseButton: 1 }] })
+    setPrimaryTool(group, WindowLevelTool.toolName)
     _toolGroup = group
     _initialized = true
 
@@ -232,7 +253,7 @@ export function useCornerstone() {
   const activateTool = useCallback((toolName: string): void => {
     if (!_toolGroup) return
     _toolGroup.addViewport('healthlin-viewport', 'healthlin-engine')
-    _toolGroup.setToolActive(toolName, { bindings: [{ mouseButton: 1 }] })
+    setPrimaryTool(_toolGroup, toolName)
   }, [])
 
   return { renderingEngine, initError, activateTool }

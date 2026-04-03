@@ -79,8 +79,10 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       }
     } catch (err: unknown) {
       if (version !== _loadStudyVersion) return
-      const status = (err as { response?: { status?: number } })?.response?.status
-      if (status === 502 || status === 504) {
+      const axiosErr = err as { response?: { status?: number }; code?: string }
+      const status = axiosErr?.response?.status
+      const isNetworkError = !axiosErr?.response || axiosErr.code === 'ECONNABORTED' || axiosErr.code === 'ERR_NETWORK'
+      if (isNetworkError || status === 502 || status === 504) {
         set({ isOrtahncOffline: true })
       }
       set({ currentStudy: null, currentSeries: null, currentInstance: null, instances: [], isLoading: false })

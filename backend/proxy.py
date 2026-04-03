@@ -6,7 +6,9 @@ import models
 
 proxy_bp = Blueprint("proxy", __name__, url_prefix="/api/orthanc")
 
-TIMEOUT = 30
+TIMEOUT_DEFAULT = 15        # metadata, tags, previews, buscas
+TIMEOUT_TRANSFER = 120      # download de arquivos DICOM pesados
+STREAM_CHUNK_SIZE = 64 * 1024  # 64 KB
 
 # Headers que não devem ser repassados
 EXCLUDED_HEADERS = {"host", "authorization", "content-length", "transfer-encoding"}
@@ -19,11 +21,16 @@ def _get_orthanc_auth():
     if user_id:
         creds = models.get_user_credentials(user_id)
         if creds:
+            # Quando o council_number coincide com o usuário global do Orthanc
+            # (ex.: "admin"), a senha efetiva no Orthanc é a global, pois o sync
+            # preserva ORTHANC_USER/ORTHANC_PASS por último.
+            if creds[0] == config.ORTHANC_USER:
+                return (config.ORTHANC_USER, config.ORTHANC_PASS)
             return creds
     return (config.ORTHANC_USER, config.ORTHANC_PASS)
 
 
-def proxy_request(orthanc_path):
+def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
     """Repassa a requisição pro Orthanc e retorna a resposta."""
     url = f"{config.ORTHANC_URL}{orthanc_path}"
 
@@ -45,7 +52,7 @@ def proxy_request(orthanc_path):
             headers=headers,
             data=request.get_data(),
             auth=_get_orthanc_auth(),
-            timeout=TIMEOUT,
+            timeout=timeout,
             stream=True,
         )
 
@@ -69,8 +76,15 @@ def proxy_request(orthanc_path):
                 content_type="application/json",
             )
 
+        def stream_chunks():
+            try:
+                for chunk in resp.iter_content(chunk_size=STREAM_CHUNK_SIZE):
+                    yield chunk
+            finally:
+                resp.close()
+
         return Response(
-            resp.content,
+            stream_chunks(),
             status=resp.status_code,
             headers=response_headers,
         )
@@ -152,7 +166,7 @@ def get_instance_preview(instance_id):
 @proxy_bp.route("/instances/<instance_id>/file", methods=["GET"])
 @require_auth
 def get_instance_file(instance_id):
-    return proxy_request(f"/instances/{instance_id}/file")
+    return proxy_request(f"/instances/{instance_id}/file", timeout=TIMEOUT_TRANSFER)
 
 
 @proxy_bp.route("/instances/<instance_id>/frames/<int:frame>/preview", methods=["GET"])

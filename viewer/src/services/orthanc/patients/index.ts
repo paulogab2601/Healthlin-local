@@ -2,8 +2,8 @@ import api from '../../api'
 import type { Patient } from '@/types/orthanc'
 
 export const patientsService = {
-  async list(): Promise<string[]> {
-    const res = await api.get<string[]>('/api/orthanc/patients')
+  async list(): Promise<Patient[]> {
+    const res = await api.get<Patient[]>('/api/orthanc/patients?expand')
     return res.data
   },
 
