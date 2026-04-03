@@ -53,7 +53,6 @@ export function DicomCanvas() {
 
     try {
       const viewport = ensureViewport()
-      console.log('Viewport size:', div.clientWidth, div.clientHeight)
 
       if (!viewport) {
         setRenderError('Falha ao inicializar o viewport DICOM.')
@@ -67,25 +66,32 @@ export function DicomCanvas() {
       console.error('[DicomCanvas] Failed to enable viewport:', err)
     }
 
+    let rafId: number | null = null
+
     const resizeObserver = new ResizeObserver(() => {
-      if (!divRef.current) return
+      if (rafId !== null) return
 
-      const viewport = engine.getViewport(VIEWPORT_ID) as unknown as StackViewport | undefined
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        if (!divRef.current) return
 
-      try {
-        console.log('Viewport size:', divRef.current.clientWidth, divRef.current.clientHeight)
-        engine.resize(true, true)
-        viewport?.render()
-      } catch (err) {
-        setRenderError('Falha ao redimensionar o viewport DICOM.')
-        console.error('[DicomCanvas] Failed to resize viewport:', err)
-      }
+        const viewport = engine.getViewport(VIEWPORT_ID) as unknown as StackViewport | undefined
+
+        try {
+          engine.resize(true, true)
+          viewport?.render()
+        } catch (err) {
+          setRenderError('Falha ao redimensionar o viewport DICOM.')
+          console.error('[DicomCanvas] Failed to resize viewport:', err)
+        }
+      })
     })
 
     resizeObserver.observe(div)
 
     return () => {
       resizeObserver.disconnect()
+      if (rafId !== null) cancelAnimationFrame(rafId)
 
       try {
         engine.disableElement(VIEWPORT_ID)
@@ -96,6 +102,10 @@ export function DicomCanvas() {
   }, [renderingEngine])
 
   // Render image whenever the selected instance changes.
+  // A small debounce absorbs rapid successive changes (e.g. slider dragging)
+  // so only the final frame triggers the heavy setStack + render pipeline.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
     if (!renderingEngine) return
 
@@ -133,7 +143,6 @@ export function DicomCanvas() {
 
         const imageId = instancesService.getFileUrl(instance.ID)
         const imageIds = [imageId].filter((value): value is string => Boolean(value))
-        console.log('ImageIds:', imageIds)
 
         if (imageIds.length === 0) {
           if (cancelled) return
@@ -158,10 +167,17 @@ export function DicomCanvas() {
       }
     }
 
-    loadImage()
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      if (!cancelled) loadImage()
+    }, 40)
 
     return () => {
       cancelled = true
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
     }
   }, [renderingEngine, currentInstance, currentStudy, setOrtahncOffline])
 

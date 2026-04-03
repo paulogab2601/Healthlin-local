@@ -15,8 +15,10 @@ interface DashboardState {
   selectedPatientId: string | null
   filters: DashboardFilters
   searchQuery: string
-  isLoading: boolean
+  isLoadingPatients: boolean
+  isLoadingStudies: boolean
   isOrtahncOffline: boolean
+  fetchError: string | null
 
   fetchPatients: () => Promise<void>
   fetchStudies: (patientId: string) => Promise<void>
@@ -32,32 +34,35 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   selectedPatientId: null,
   filters: { modality: '', dateFrom: '', dateTo: '' },
   searchQuery: '',
-  isLoading: false,
+  isLoadingPatients: false,
+  isLoadingStudies: false,
   isOrtahncOffline: false,
+  fetchError: null,
 
   fetchPatients: async () => {
-    set({ isLoading: true, isOrtahncOffline: false })
+    set({ isLoadingPatients: true, isOrtahncOffline: false, fetchError: null })
     try {
       const patients = await patientsService.list()
-      set({ patients, isLoading: false })
+      set({ patients, isLoadingPatients: false })
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number }; code?: string }
       const status = axiosErr?.response?.status
       const isNetworkError = !axiosErr?.response || axiosErr.code === 'ECONNABORTED' || axiosErr.code === 'ERR_NETWORK'
       if (isNetworkError || status === 502 || status === 504) {
-        set({ isOrtahncOffline: true })
+        set({ isOrtahncOffline: true, isLoadingPatients: false })
+      } else {
+        set({ fetchError: 'Erro ao carregar pacientes. Tente novamente.', isLoadingPatients: false })
       }
-      set({ isLoading: false })
     }
   },
 
   fetchStudies: async (patientId) => {
-    set({ isLoading: true })
+    set({ isLoadingStudies: true })
     try {
       const studies = await patientsService.getStudies(patientId)
-      set({ studies, isLoading: false })
+      set({ studies, isLoadingStudies: false })
     } catch {
-      set({ isLoading: false })
+      set({ isLoadingStudies: false })
     }
   },
 

@@ -3,7 +3,7 @@ import { useDashboardStore } from '@/store/dashboard'
 import type { Study } from '@/types/orthanc'
 
 export function useStudies(patientId: string | null) {
-  const { studies, isLoading, fetchStudies, filters } = useDashboardStore()
+  const { studies, isLoadingStudies, fetchStudies, filters } = useDashboardStore()
 
   useEffect(() => {
     if (patientId) {
@@ -28,5 +28,5 @@ export function useStudies(patientId: string | null) {
     return true
   })
 
-  return { studies: filtered, isLoading }
+  return { studies: filtered, isLoading: isLoadingStudies }
 }

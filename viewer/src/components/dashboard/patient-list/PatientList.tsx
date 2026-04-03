@@ -5,7 +5,7 @@ import { ConnectionError } from '@/components/common/errors/ConnectionError'
 import { formatPatientName, formatDate } from '@/utils/format'
 
 export function PatientList() {
-  const { patients, isLoading, isOrtahncOffline, refetch } = usePatients()
+  const { patients, isLoading, isOrtahncOffline, fetchError, refetch } = usePatients()
   const { selectedPatientId, selectPatient } = useDashboardStore()
 
   if (isOrtahncOffline) {
@@ -16,6 +16,20 @@ export function PatientList() {
     return (
       <div className="space-y-2">
         {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} lines={3} />)}
+      </div>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <p className="text-sm text-danger">{fetchError}</p>
+        <button
+          onClick={refetch}
+          className="text-sm text-accent hover:text-accent/80 underline underline-offset-2"
+        >
+          Tentar novamente
+        </button>
       </div>
     )
   }
