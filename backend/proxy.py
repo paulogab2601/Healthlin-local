@@ -17,6 +17,10 @@ STREAM_CHUNK_SIZE = 64 * 1024  # 64 KB
 EXCLUDED_HEADERS = {"host", "authorization", "content-length", "transfer-encoding"}
 
 
+def _global_orthanc_auth():
+    return (config.ORTHANC_USER, config.ORTHANC_PASS)
+
+
 
 def _get_orthanc_auth():
     """Return credentials for Orthanc auth, preferring logged user credentials."""
@@ -26,10 +30,37 @@ def _get_orthanc_auth():
         if creds:
             # If app user matches global Orthanc user, keep global password.
             if creds[0] == config.ORTHANC_USER:
-                return (config.ORTHANC_USER, config.ORTHANC_PASS)
+                return _global_orthanc_auth()
             return creds
-    return (config.ORTHANC_USER, config.ORTHANC_PASS)
+    return _global_orthanc_auth()
 
+
+def _request_orthanc(url, headers, payload, auth, timeout, stream):
+    return requests.request(
+        method=request.method,
+        url=url,
+        headers=headers,
+        data=payload,
+        auth=auth,
+        timeout=timeout,
+        stream=stream,
+    )
+
+
+def _retry_with_global_auth_if_unauthorized(resp, url, headers, payload, auth, timeout, stream):
+    """If per-user auth fails with 401, retry once with global Orthanc account."""
+    if resp.status_code != 401 or auth == _global_orthanc_auth():
+        return resp
+
+    resp.close()
+    return _request_orthanc(
+        url=url,
+        headers=headers,
+        payload=payload,
+        auth=_global_orthanc_auth(),
+        timeout=timeout,
+        stream=stream,
+    )
 
 
 def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
@@ -44,14 +75,24 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
         for key, value in request.headers
         if key.lower() not in EXCLUDED_HEADERS
     }
+    payload = request.get_data()
+    auth = _get_orthanc_auth()
 
     try:
-        resp = requests.request(
-            method=request.method,
+        resp = _request_orthanc(
             url=url,
             headers=headers,
-            data=request.get_data(),
-            auth=_get_orthanc_auth(),
+            payload=payload,
+            auth=auth,
+            timeout=timeout,
+            stream=True,
+        )
+        resp = _retry_with_global_auth_if_unauthorized(
+            resp=resp,
+            url=url,
+            headers=headers,
+            payload=payload,
+            auth=auth,
             timeout=timeout,
             stream=True,
         )
@@ -70,8 +111,9 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
 
         # Orthanc 401 should not bubble as 401 to frontend JWT interceptor.
         if resp.status_code == 401:
+            resp.close()
             return Response(
-                '{"error": "Falha de autenticacao com o Orthanc. Verifique ORTHANC_USER/ORTHANC_PASS."}',
+                '{"error": "Falha de autenticacao com o Orthanc. Verifique sincronizacao do usuario e credenciais globais."}',
                 status=502,
                 content_type="application/json",
             )
@@ -271,21 +313,32 @@ def get_simplified_tags(instance_id):
         for key, value in request.headers
         if key.lower() not in EXCLUDED_HEADERS
     }
+    payload = request.get_data()
+    auth = _get_orthanc_auth()
 
     try:
-        resp = requests.request(
-            method=request.method,
+        resp = _request_orthanc(
             url=url,
             headers=headers,
-            data=request.get_data(),
-            auth=_get_orthanc_auth(),
+            payload=payload,
+            auth=auth,
+            timeout=TIMEOUT_DEFAULT,
+            stream=False,
+        )
+        resp = _retry_with_global_auth_if_unauthorized(
+            resp=resp,
+            url=url,
+            headers=headers,
+            payload=payload,
+            auth=auth,
             timeout=TIMEOUT_DEFAULT,
             stream=False,
         )
 
         if resp.status_code == 401:
+            resp.close()
             return Response(
-                '{"error": "Falha de autenticacao com o Orthanc. Verifique ORTHANC_USER/ORTHANC_PASS."}',
+                '{"error": "Falha de autenticacao com o Orthanc. Verifique sincronizacao do usuario e credenciais globais."}',
                 status=502,
                 content_type="application/json",
             )

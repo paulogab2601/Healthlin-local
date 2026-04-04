@@ -39,7 +39,8 @@ def sync_orthanc_users():
     Sobrescreve /etc/orthanc/credentials.json com os usuários ativos da interface
     e reinicia o Orthanc **somente se as credenciais mudaram**.
 
-    O username no Orthanc é o council_number do usuário (ex: '4214-MG').
+    O username no Orthanc é composto por council_type + council_number
+    para evitar colisões (ex: 'CRM__4214-MG').
     A conta admin global (ORTHANC_USER/ORTHANC_PASS) é sempre preservada.
     """
     try:
@@ -49,7 +50,7 @@ def sync_orthanc_users():
         registered = {}
 
         for user in models.list_users_with_credentials():
-            registered[user["council_number"]] = user["password"]
+            registered[user["orthanc_username"]] = user["password"]
 
         # Admin global sempre vence — inserido por último
         registered[config.ORTHANC_USER] = config.ORTHANC_PASS

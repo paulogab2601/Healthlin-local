@@ -25,6 +25,15 @@ _creds_cache: dict[int, tuple[float, tuple[str, str] | None]] = {}
 _CREDS_TTL = 60  # segundos
 
 
+def build_orthanc_username(council_type: str, council_number: str) -> str:
+    """Monta username único para o Orthanc evitando colisões entre conselhos."""
+    normalized_type = str(council_type or "").strip().upper()
+    normalized_number = str(council_number or "").strip()
+    if not normalized_type:
+        return normalized_number
+    return f"{normalized_type}__{normalized_number}"
+
+
 def invalidate_credentials_cache(user_id: int | None = None):
     """Remove entradas do cache de credenciais. Sem argumento limpa tudo."""
     if user_id is None:
@@ -207,7 +216,7 @@ def reactivate_user(user_id):
 
 
 def get_user_credentials(user_id):
-    """Retorna (council_number, senha_plain) para autenticação no Orthanc, ou None.
+    """Retorna (orthanc_username, senha_plain) para autenticação no Orthanc, ou None.
     Resultado cacheado por até _CREDS_TTL segundos para evitar query + decrypt a cada request."""
     now = time.monotonic()
     cached = _creds_cache.get(user_id)
@@ -216,7 +225,7 @@ def get_user_credentials(user_id):
 
     conn = get_db()
     user = conn.execute(
-        "SELECT council_number, password_encrypted FROM users WHERE id = ? AND active = 1",
+        "SELECT council_type, council_number, password_encrypted FROM users WHERE id = ? AND active = 1",
         (user_id,),
     ).fetchone()
     conn.close()
@@ -226,7 +235,8 @@ def get_user_credentials(user_id):
         return None
     try:
         password = _get_cipher().decrypt(user["password_encrypted"].encode()).decode()
-        result = (user["council_number"], password)
+        orthanc_username = build_orthanc_username(user["council_type"], user["council_number"])
+        result = (orthanc_username, password)
         _creds_cache[user_id] = (now + _CREDS_TTL, result)
         return result
     except Exception:
@@ -238,7 +248,7 @@ def list_users_with_credentials():
     """Retorna todos os usuários ativos com senha descriptografada (para sync no Orthanc)."""
     conn = get_db()
     users = conn.execute(
-        "SELECT council_number, password_encrypted FROM users WHERE active = 1"
+        "SELECT council_type, council_number, password_encrypted FROM users WHERE active = 1"
     ).fetchall()
     conn.close()
 
@@ -248,7 +258,12 @@ def list_users_with_credentials():
         if u["password_encrypted"]:
             try:
                 password = cipher.decrypt(u["password_encrypted"].encode()).decode()
-                result.append({"council_number": u["council_number"], "password": password})
+                result.append(
+                    {
+                        "orthanc_username": build_orthanc_username(u["council_type"], u["council_number"]),
+                        "password": password,
+                    }
+                )
             except Exception:
                 pass
     return result
