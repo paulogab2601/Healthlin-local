@@ -23,16 +23,30 @@ export const seriesService = {
     return {
       ...series,
       MainDicomTags: series.MainDicomTags ?? {},
-      Instances: Array.isArray(series.Instances) ? series.Instances : [],
+      Instances: Array.isArray(series.Instances)
+        ? series.Instances.filter((item) => {
+            if (typeof item === 'string') return true
+            return isRecord(item) && typeof (item as Instance).ID === 'string'
+          })
+        : [],
     }
   },
 
   async getInstances(id: string): Promise<SeriesInstancesResponseItem[]> {
-    const res = await api.get<SeriesInstancesResponseItem[]>(`/api/orthanc/series/${id}/instances`)
-    if (!Array.isArray(res.data)) return []
-    return res.data.filter((item) => {
-      if (typeof item === 'string') return true
-      return isRecord(item) && typeof (item as Instance).ID === 'string'
-    })
+    try {
+      const res = await api.get<SeriesInstancesResponseItem[]>(`/api/orthanc/series/${id}/instances?expand`)
+      if (!Array.isArray(res.data)) return []
+      return res.data.filter((item) => {
+        if (typeof item === 'string') return true
+        return isRecord(item) && typeof (item as Instance).ID === 'string'
+      })
+    } catch {
+      const res = await api.get<SeriesInstancesResponseItem[]>(`/api/orthanc/series/${id}/instances`)
+      if (!Array.isArray(res.data)) return []
+      return res.data.filter((item) => {
+        if (typeof item === 'string') return true
+        return isRecord(item) && typeof (item as Instance).ID === 'string'
+      })
+    }
   },
 }

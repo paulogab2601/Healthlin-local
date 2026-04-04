@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 
 import { seriesService } from '@/services/orthanc/series'
+import { isOrthancOfflineError } from '@/services/network-error'
 import { studiesService } from '@/services/orthanc/studies'
 import type { Instance, Series, Study } from '@/types/orthanc'
+import { sortDicomInstances } from '@/utils/dicom'
 import type { Annotation, ToolMode, WindowLevel } from '@/types/viewer'
 
 function normalizeInstances(instanceList: Array<string | Instance>, seriesId: string): Instance[] {
@@ -79,11 +81,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       }
     } catch (err: unknown) {
       if (version !== loadStudyVersion) return
-      const axiosErr = err as { response?: { status?: number }; code?: string }
-      const status = axiosErr?.response?.status
-      const isNetworkError =
-        !axiosErr?.response || axiosErr.code === 'ECONNABORTED' || axiosErr.code === 'ERR_NETWORK'
-      if (isNetworkError || status === 502 || status === 504) {
+      if (isOrthancOfflineError(err)) {
         set({ isOrtahncOffline: true })
       }
       set({
@@ -104,10 +102,14 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       if (version !== selectSeriesVersion) return
 
       const seriesInstances = Array.isArray(series.Instances) ? series.Instances : []
-      const instanceList = seriesInstances.length > 0 ? seriesInstances : await seriesService.getInstances(seriesId)
+      const hasExpandedInstances = seriesInstances.some((item) => typeof item !== 'string')
+      const instanceList = hasExpandedInstances
+        ? seriesInstances
+        : await seriesService.getInstances(seriesId)
       if (version !== selectSeriesVersion) return
 
-      const instances = normalizeInstances(Array.isArray(instanceList) ? instanceList : [], seriesId)
+      const normalizedInstances = normalizeInstances(Array.isArray(instanceList) ? instanceList : [], seriesId)
+      const instances = sortDicomInstances(normalizedInstances)
 
       set({
         currentSeries: series,

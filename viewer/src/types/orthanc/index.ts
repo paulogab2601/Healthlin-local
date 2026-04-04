@@ -41,12 +41,15 @@ export interface Series {
   ID: string
   ParentStudy: string
   MainDicomTags: SeriesMainDicomTags
-  Instances: string[]
+  Instances: Array<string | Instance>
 }
 
 export interface InstanceMainDicomTags {
   SOPInstanceUID?: string
-  InstanceNumber?: string
+  InstanceNumber?: string | number
+  ImagePositionPatient?: string | Array<string | number>
+  ImageOrientationPatient?: string | Array<string | number>
+  [key: string]: unknown
 }
 
 export interface Instance {

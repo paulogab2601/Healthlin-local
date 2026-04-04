@@ -28,6 +28,7 @@ const DISPLAYED_TAGS: { key: keyof SimplifiedTags; label: string }[] = [
 ]
 
 const DEBOUNCE_MS = 300
+const METADATA_CACHE_LIMIT = 240
 const FALLBACK_VALUE = '-'
 
 function isFiniteNumber(value: unknown): value is number {
@@ -140,6 +141,17 @@ export function MetadataPanel() {
   const [hasError, setHasError] = useState(false)
   const cacheRef = useRef<Map<string, SimplifiedTags>>(new Map())
 
+  const cacheTags = (instanceId: string, data: SimplifiedTags) => {
+    const cache = cacheRef.current
+    if (cache.has(instanceId)) cache.delete(instanceId)
+    cache.set(instanceId, data)
+
+    if (cache.size > METADATA_CACHE_LIMIT) {
+      const oldestKey = cache.keys().next().value
+      if (oldestKey) cache.delete(oldestKey)
+    }
+  }
+
   useEffect(() => {
     if (!currentInstance) {
       setTags(null)
@@ -161,7 +173,7 @@ export function MetadataPanel() {
       instancesService
         .getSimplifiedTags(instanceId, abortController.signal)
         .then((data) => {
-          cacheRef.current.set(instanceId, data)
+          cacheTags(instanceId, data)
           setTags(data)
           setHasError(false)
         })

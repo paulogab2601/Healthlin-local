@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { patientsService } from '@/services/orthanc/patients'
-import { studiesService } from '@/services/orthanc/studies'
+import { isOrthancOfflineError, isRequestCanceled } from '@/services/network-error'
 import type { Patient, Study } from '@/types/orthanc'
 
 const PAGE_SIZE = 50
@@ -58,10 +58,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const { patients, hasMore } = await patientsService.list(since, PAGE_SIZE)
       set({ patients, hasMore, isLoadingPatients: false })
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { status?: number }; code?: string }
-      const status = axiosErr?.response?.status
-      const isNetworkError = !axiosErr?.response || axiosErr.code === 'ECONNABORTED' || axiosErr.code === 'ERR_NETWORK'
-      if (isNetworkError || status === 502 || status === 504) {
+      if (isOrthancOfflineError(err)) {
         set({ isOrtahncOffline: true, isLoadingPatients: false })
       } else {
         set({ fetchError: 'Erro ao carregar pacientes. Tente novamente.', isLoadingPatients: false })
@@ -79,7 +76,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       if (get().selectedPatientId !== patientId) return
       set({ studies, isLoadingStudies: false })
     } catch (err) {
-      if ((err as Error).name === 'CanceledError') return
+      if (isRequestCanceled(err)) return
       set({ isLoadingStudies: false })
     }
   },

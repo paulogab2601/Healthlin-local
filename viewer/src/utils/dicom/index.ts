@@ -70,3 +70,4 @@ export function formatSex(sex?: string): string {
   const map: Record<string, string> = { M: 'Masculino', F: 'Feminino', O: 'Outro' }
   return map[sex.toUpperCase()] ?? sex
 }
+export { sortDicomInstances } from './sortInstances'

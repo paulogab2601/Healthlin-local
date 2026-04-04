@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/auth'
+import { isOrthancOfflineError } from '@/services/network-error'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '',
@@ -32,8 +33,7 @@ api.interceptors.response.use(
       queueMicrotask(() => { isLoggingOut = false })
     }
 
-    const isNetworkError = !error.response || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK'
-    if (isNetworkError || status === 502 || status === 504) {
+    if (status !== 401 && isOrthancOfflineError(error)) {
       window.dispatchEvent(new CustomEvent('orthanc:offline'))
     }
 
