@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useViewerStore } from '@/store/viewer'
 import { useCornerstone } from '@/hooks/viewer/useCornerstone'
 import type { ToolMode } from '@/types/viewer'
@@ -67,7 +68,13 @@ const TOOLS: Tool[] = [
 
 export function Toolbar() {
   const { activeTool, setActiveTool } = useViewerStore()
-  const { activateTool } = useCornerstone()
+  const { activateTool, renderingEngine } = useCornerstone()
+
+  // Guarantees the active tool is bound to the viewport when the viewer initializes.
+  useEffect(() => {
+    if (!renderingEngine) return
+    activateTool(activeTool)
+  }, [renderingEngine, activeTool, activateTool])
 
   return (
     <div className="flex items-center gap-1 px-2 py-1 bg-bg-secondary border-b border-bg-tertiary">
