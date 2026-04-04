@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom'
-import { useDashboardStore } from '@/store/dashboard'
-import { useStudies } from '@/hooks/orthanc/useStudies'
-import { SkeletonCard } from '@/components/common/loading/SkeletonCard'
+
 import { ModalityBadge } from '@/components/common/badges/ModalityBadge'
 import { Button } from '@/components/common/buttons/Button'
-import { formatDate } from '@/utils/format'
+import { SkeletonCard } from '@/components/common/loading/SkeletonCard'
+import { useStudies } from '@/hooks/orthanc/useStudies'
+import { useDashboardStore } from '@/store/dashboard'
 import { getStudyModalities } from '@/utils/dicom'
+import { formatDate } from '@/utils/format'
 
 export function ExamList() {
   const { selectedPatientId } = useDashboardStore()
@@ -17,7 +18,9 @@ export function ExamList() {
   if (isLoading) {
     return (
       <div className="space-y-2">
-        {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} lines={4} />)}
+        {Array.from({ length: 3 }).map((_, i) => (
+          <SkeletonCard key={i} lines={4} />
+        ))}
       </div>
     )
   }
@@ -33,8 +36,19 @@ export function ExamList() {
   return (
     <div className="space-y-2">
       {studies.map((study) => {
-        const tags = study.MainDicomTags
+        const tags = study.MainDicomTags ?? {}
         const studyModalities = getStudyModalities(tags)
+        const description =
+          typeof tags.StudyDescription === 'string' && tags.StudyDescription.trim()
+            ? tags.StudyDescription
+            : 'Sem descricao'
+        const accessionNumber =
+          typeof tags.AccessionNumber === 'string' && tags.AccessionNumber.trim()
+            ? tags.AccessionNumber
+            : null
+        const studyDate = typeof tags.StudyDate === 'string' ? tags.StudyDate : undefined
+        const seriesCount = Array.isArray(study.Series) ? study.Series.length : 0
+
         return (
           <div
             key={study.ID}
@@ -42,22 +56,20 @@ export function ExamList() {
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-text-primary font-medium truncate">
-                  {tags.StudyDescription || 'Sem descrição'}
-                </p>
+                <p className="text-text-primary font-medium truncate">{description}</p>
                 <p className="text-xs text-text-muted mt-0.5">
-                  {formatDate(tags.StudyDate)} · {study.Series.length} série(s)
+                  {formatDate(studyDate)} · {seriesCount} serie(s)
                 </p>
-                {tags.AccessionNumber && (
-                  <p className="text-xs text-text-muted font-mono">Acc: {tags.AccessionNumber}</p>
+                {accessionNumber && (
+                  <p className="text-xs text-text-muted font-mono">Acc: {accessionNumber}</p>
                 )}
               </div>
             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex flex-wrap gap-1">
-                {studyModalities.map((m) => (
-                  <ModalityBadge key={m} modality={m} />
+                {studyModalities.map((modality) => (
+                  <ModalityBadge key={modality} modality={modality} />
                 ))}
               </div>
               <Button size="sm" onClick={() => navigate(`/viewer/${study.ID}`)}>

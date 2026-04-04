@@ -40,7 +40,7 @@ export function useStudies(patientId: string | null) {
   }, [patientId, fetchStudies])
 
   const filtered = studies.filter((study: Study) => {
-    const tags = study.MainDicomTags
+    const tags = study.MainDicomTags ?? {}
 
     if (selectedModality) {
       const modalities = getStudyModalities(tags)
@@ -50,7 +50,7 @@ export function useStudies(patientId: string | null) {
     }
 
     // StudyDate no DICOM é YYYYMMDD; filtros chegam como YYYY-MM-DD — normaliza removendo hífens
-    const studyDate = tags.StudyDate ?? ''
+    const studyDate = typeof tags.StudyDate === 'string' ? tags.StudyDate : ''
     if (hasDateFilter && !isValidDicomDate(studyDate)) return false
     if (dateFrom && studyDate < dateFrom) return false
     if (dateTo   && studyDate > dateTo)   return false

@@ -1,11 +1,12 @@
+import { ConnectionError } from '@/components/common/errors/ConnectionError'
+import { SkeletonCard } from '@/components/common/loading/SkeletonCard'
 import { usePatients } from '@/hooks/orthanc/usePatients'
 import { useDashboardStore } from '@/store/dashboard'
-import { SkeletonCard } from '@/components/common/loading/SkeletonCard'
-import { ConnectionError } from '@/components/common/errors/ConnectionError'
-import { formatPatientName, formatDate } from '@/utils/format'
+import { formatDate, formatPatientName } from '@/utils/format'
 
 export function PatientList() {
-  const { patients, isLoading, isOrtahncOffline, fetchError, refetch, page, hasMore, nextPage, prevPage } = usePatients()
+  const { patients, isLoading, isOrtahncOffline, fetchError, refetch, page, hasMore, nextPage, prevPage } =
+    usePatients()
   const { selectedPatientId, selectPatient } = useDashboardStore()
 
   if (isOrtahncOffline) {
@@ -15,7 +16,9 @@ export function PatientList() {
   if (isLoading) {
     return (
       <div className="space-y-2">
-        {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} lines={3} />)}
+        {Array.from({ length: 5 }).map((_, i) => (
+          <SkeletonCard key={i} lines={3} />
+        ))}
       </div>
     )
   }
@@ -66,6 +69,15 @@ export function PatientList() {
         <tbody>
           {patients.map((patient) => {
             const isSelected = patient.ID === selectedPatientId
+            const tags = patient.MainDicomTags ?? {}
+            const patientName = typeof tags.PatientName === 'string' ? tags.PatientName : undefined
+            const patientId =
+              typeof tags.PatientID === 'string' && tags.PatientID.trim().length > 0
+                ? tags.PatientID
+                : '-'
+            const patientBirthDate = typeof tags.PatientBirthDate === 'string' ? tags.PatientBirthDate : undefined
+            const studiesCount = Array.isArray(patient.Studies) ? patient.Studies.length : 0
+
             return (
               <tr
                 key={patient.ID}
@@ -75,16 +87,10 @@ export function PatientList() {
                   isSelected ? 'bg-accent/10' : 'hover:bg-bg-tertiary',
                 ].join(' ')}
               >
-                <td className="py-3 pr-4 text-text-primary font-medium">
-                  {formatPatientName(patient.MainDicomTags.PatientName)}
-                </td>
-                <td className="py-3 pr-4 text-text-secondary font-mono text-xs">
-                  {patient.MainDicomTags.PatientID ?? '—'}
-                </td>
-                <td className="py-3 pr-4 text-text-secondary">
-                  {formatDate(patient.MainDicomTags.PatientBirthDate)}
-                </td>
-                <td className="py-3 text-text-secondary">{patient.Studies.length}</td>
+                <td className="py-3 pr-4 text-text-primary font-medium">{formatPatientName(patientName)}</td>
+                <td className="py-3 pr-4 text-text-secondary font-mono text-xs">{patientId}</td>
+                <td className="py-3 pr-4 text-text-secondary">{formatDate(patientBirthDate)}</td>
+                <td className="py-3 text-text-secondary">{studiesCount}</td>
               </tr>
             )
           })}
@@ -100,13 +106,13 @@ export function PatientList() {
           >
             Anterior
           </button>
-          <span className="text-text-muted">Página {page + 1}</span>
+          <span className="text-text-muted">Pagina {page + 1}</span>
           <button
             onClick={nextPage}
             disabled={!hasMore}
             className="px-3 py-1.5 rounded border border-bg-tertiary enabled:hover:bg-bg-tertiary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            Próximo
+            Proximo
           </button>
         </div>
       )}

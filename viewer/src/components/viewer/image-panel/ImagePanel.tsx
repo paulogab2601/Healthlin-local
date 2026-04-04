@@ -46,7 +46,7 @@ export function ImagePanel() {
   return (
     <div className="flex items-center gap-3 px-4 py-2 bg-bg-secondary border-t border-bg-tertiary">
       <span className="text-xs text-text-muted whitespace-nowrap">
-        Frame {displayFrame + 1} / {instances.length}
+        Instancia {displayFrame + 1} / {instances.length}
       </span>
       <input
         type="range"

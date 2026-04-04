@@ -55,21 +55,29 @@ export interface Instance {
   MainDicomTags: InstanceMainDicomTags
 }
 
+export type DicomTagPrimitive = string | number | null
+export type DicomTagValue = DicomTagPrimitive | DicomTagValue[] | { [key: string]: DicomTagValue }
+export type SafeSpacingSource = 'PixelSpacing' | 'ImagerPixelSpacing' | null
+
 export interface SimplifiedTags {
-  PatientName?: string
-  PatientID?: string
-  PatientBirthDate?: string
-  PatientSex?: string
-  StudyDate?: string
-  StudyDescription?: string
-  Modality?: string
-  SeriesDescription?: string
-  InstanceNumber?: string
-  SliceThickness?: string
-  PixelSpacing?: string
-  Rows?: string
-  Columns?: string
-  KVP?: string
-  ExposureTime?: string
-  [key: string]: string | undefined
+  PatientName?: DicomTagValue
+  PatientID?: DicomTagValue
+  PatientBirthDate?: DicomTagValue
+  PatientSex?: DicomTagValue
+  StudyDate?: DicomTagValue
+  StudyDescription?: DicomTagValue
+  Modality?: DicomTagValue
+  SeriesDescription?: DicomTagValue
+  InstanceNumber?: DicomTagValue
+  SliceThickness?: DicomTagValue
+  PixelSpacing?: DicomTagValue
+  ImagerPixelSpacing?: DicomTagValue
+  safeSpacing?: DicomTagValue
+  safeSpacingSource?: SafeSpacingSource
+  NumberOfFrames?: DicomTagValue
+  Rows?: DicomTagValue
+  Columns?: DicomTagValue
+  KVP?: DicomTagValue
+  ExposureTime?: DicomTagValue
+  [key: string]: DicomTagValue | undefined
 }

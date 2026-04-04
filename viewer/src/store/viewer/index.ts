@@ -1,13 +1,11 @@
 import { create } from 'zustand'
-import { studiesService } from '@/services/orthanc/studies'
-import { seriesService } from '@/services/orthanc/series'
-import type { Study, Series, Instance } from '@/types/orthanc'
-import type { ToolMode, WindowLevel, Annotation } from '@/types/viewer'
 
-function normalizeInstances(
-  instanceList: Array<string | Instance>,
-  seriesId: string,
-): Instance[] {
+import { seriesService } from '@/services/orthanc/series'
+import { studiesService } from '@/services/orthanc/studies'
+import type { Instance, Series, Study } from '@/types/orthanc'
+import type { Annotation, ToolMode, WindowLevel } from '@/types/viewer'
+
+function normalizeInstances(instanceList: Array<string | Instance>, seriesId: string): Instance[] {
   return instanceList
     .map((item): Instance | null => {
       if (typeof item === 'string') {
@@ -51,8 +49,8 @@ interface ViewerState {
   setOrtahncOffline: (v: boolean) => void
 }
 
-let _loadStudyVersion = 0
-let _selectSeriesVersion = 0
+let loadStudyVersion = 0
+let selectSeriesVersion = 0
 
 export const useViewerStore = create<ViewerState>((set, get) => ({
   currentStudy: null,
@@ -67,41 +65,49 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   isLoading: false,
 
   loadStudy: async (studyId) => {
-    const version = ++_loadStudyVersion
+    const version = ++loadStudyVersion
     set({ isLoading: true, isOrtahncOffline: false })
     try {
       const study = await studiesService.get(studyId)
-      if (version !== _loadStudyVersion) return
+      if (version !== loadStudyVersion) return
+
       set({ currentStudy: study, isLoading: false })
 
-      // Carrega a primeira série automaticamente
-      if (study.Series.length > 0) {
-        await get().selectSeries(study.Series[0])
+      const studySeries = Array.isArray(study.Series) ? study.Series : []
+      if (studySeries.length > 0) {
+        await get().selectSeries(studySeries[0])
       }
     } catch (err: unknown) {
-      if (version !== _loadStudyVersion) return
+      if (version !== loadStudyVersion) return
       const axiosErr = err as { response?: { status?: number }; code?: string }
       const status = axiosErr?.response?.status
-      const isNetworkError = !axiosErr?.response || axiosErr.code === 'ECONNABORTED' || axiosErr.code === 'ERR_NETWORK'
+      const isNetworkError =
+        !axiosErr?.response || axiosErr.code === 'ECONNABORTED' || axiosErr.code === 'ERR_NETWORK'
       if (isNetworkError || status === 502 || status === 504) {
         set({ isOrtahncOffline: true })
       }
-      set({ currentStudy: null, currentSeries: null, currentInstance: null, instances: [], isLoading: false })
+      set({
+        currentStudy: null,
+        currentSeries: null,
+        currentInstance: null,
+        instances: [],
+        isLoading: false,
+      })
     }
   },
 
   selectSeries: async (seriesId) => {
-    const version = ++_selectSeriesVersion
+    const version = ++selectSeriesVersion
     set({ isLoading: true })
     try {
       const series = await seriesService.get(seriesId)
-      if (version !== _selectSeriesVersion) return
-      const instanceList =
-        series.Instances?.length > 0
-          ? series.Instances
-          : await seriesService.getInstances(seriesId)
-      if (version !== _selectSeriesVersion) return
-      const instances = normalizeInstances(instanceList, seriesId)
+      if (version !== selectSeriesVersion) return
+
+      const seriesInstances = Array.isArray(series.Instances) ? series.Instances : []
+      const instanceList = seriesInstances.length > 0 ? seriesInstances : await seriesService.getInstances(seriesId)
+      if (version !== selectSeriesVersion) return
+
+      const instances = normalizeInstances(Array.isArray(instanceList) ? instanceList : [], seriesId)
 
       set({
         currentSeries: series,
@@ -111,7 +117,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         isLoading: false,
       })
     } catch {
-      if (version !== _selectSeriesVersion) return
+      if (version !== selectSeriesVersion) return
       set({ currentSeries: null, currentInstance: null, instances: [], isLoading: false })
     }
   },
@@ -125,16 +131,9 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   },
 
   setWindowLevel: (windowLevel) => set({ windowLevel }),
-
   setActiveTool: (activeTool) => set({ activeTool }),
-
-  addAnnotation: (annotation) =>
-    set((state) => ({ annotations: [...state.annotations, annotation] })),
-
-  removeAnnotation: (id) =>
-    set((state) => ({ annotations: state.annotations.filter((a) => a.id !== id) })),
-
+  addAnnotation: (annotation) => set((state) => ({ annotations: [...state.annotations, annotation] })),
+  removeAnnotation: (id) => set((state) => ({ annotations: state.annotations.filter((item) => item.id !== id) })),
   clearAnnotations: () => set({ annotations: [] }),
-
-  setOrtahncOffline: (v) => set({ isOrtahncOffline: v }),
+  setOrtahncOffline: (value) => set({ isOrtahncOffline: value }),
 }))

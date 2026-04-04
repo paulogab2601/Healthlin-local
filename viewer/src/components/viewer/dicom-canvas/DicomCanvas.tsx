@@ -13,6 +13,26 @@ interface StackViewport {
   render: () => void
 }
 
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  if (!normalized) return null
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function toNumberOfFrames(value: unknown): number | null {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return null
+    return toNumberOfFrames(value[0])
+  }
+
+  const parsed = toFiniteNumber(value)
+  if (parsed === null || parsed < 1) return null
+  return Math.trunc(parsed)
+}
+
 export function DicomCanvas() {
   const divRef = useRef<HTMLDivElement>(null)
   const [renderError, setRenderError] = useState<string | null>(null)
@@ -111,12 +131,13 @@ export function DicomCanvas() {
 
     if (!currentInstance) {
       if (currentStudy !== null) {
-        setRenderError('Série sem instâncias válidas.')
+        setRenderError('Serie sem instancias validas.')
       }
       return
     }
 
     let cancelled = false
+    const simplifiedTagsAbort = new AbortController()
 
     const engine = renderingEngine
     const instance = currentInstance
@@ -138,6 +159,31 @@ export function DicomCanvas() {
         if (!viewport) {
           if (cancelled) return
           setRenderError('Viewport DICOM nao esta disponivel para renderizacao.')
+          return
+        }
+
+        let numberOfFrames: number | null = null
+        try {
+          const simplifiedTags = await instancesService.getSimplifiedTags(
+            instance.ID,
+            simplifiedTagsAbort.signal,
+          )
+          if (cancelled || simplifiedTagsAbort.signal.aborted) return
+          numberOfFrames = toNumberOfFrames(simplifiedTags.NumberOfFrames)
+        } catch (metadataErr) {
+          if (!cancelled && !simplifiedTagsAbort.signal.aborted) {
+            console.warn('[DicomCanvas] Could not inspect NumberOfFrames for current instance:', metadataErr)
+          }
+        }
+
+        if (numberOfFrames !== null && numberOfFrames > 1) {
+          if (cancelled) return
+          console.warn(
+            `[DicomCanvas] Multi-frame detected for instance ${instance.ID} (NumberOfFrames=${numberOfFrames}). Limited fallback applied.`,
+          )
+          setRenderError(
+            `Instancia multi-frame (${numberOfFrames} frames) ainda nao tem suporte completo neste viewer.`,
+          )
           return
         }
 
@@ -174,6 +220,7 @@ export function DicomCanvas() {
 
     return () => {
       cancelled = true
+      simplifiedTagsAbort.abort()
       if (debounceRef.current) {
         clearTimeout(debounceRef.current)
         debounceRef.current = null
@@ -223,3 +270,4 @@ export function DicomCanvas() {
     </div>
   )
 }
+

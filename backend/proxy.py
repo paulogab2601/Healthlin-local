@@ -1,44 +1,44 @@
+﻿import math
+
 import requests
-from flask import Blueprint, request, Response, g
+from flask import Blueprint, request, Response, g, jsonify
+
 from auth import require_auth
 import config
 import models
 
 proxy_bp = Blueprint("proxy", __name__, url_prefix="/api/orthanc")
 
-TIMEOUT_DEFAULT = 15        # metadata, tags, previews, buscas
-TIMEOUT_TRANSFER = 120      # download de arquivos DICOM pesados
+TIMEOUT_DEFAULT = 15  # metadata, tags, previews, search
+TIMEOUT_TRANSFER = 120  # heavy DICOM file download
 STREAM_CHUNK_SIZE = 64 * 1024  # 64 KB
 
-# Headers que não devem ser repassados
+# Headers that should not be forwarded to Orthanc
 EXCLUDED_HEADERS = {"host", "authorization", "content-length", "transfer-encoding"}
 
 
+
 def _get_orthanc_auth():
-    """Retorna as credenciais do usuário logado para autenticação no Orthanc.
-    Usa o admin global como fallback caso a senha do usuário não esteja armazenada."""
+    """Return credentials for Orthanc auth, preferring logged user credentials."""
     user_id = g.user.get("user_id")
     if user_id:
         creds = models.get_user_credentials(user_id)
         if creds:
-            # Quando o council_number coincide com o usuário global do Orthanc
-            # (ex.: "admin"), a senha efetiva no Orthanc é a global, pois o sync
-            # preserva ORTHANC_USER/ORTHANC_PASS por último.
+            # If app user matches global Orthanc user, keep global password.
             if creds[0] == config.ORTHANC_USER:
                 return (config.ORTHANC_USER, config.ORTHANC_PASS)
             return creds
     return (config.ORTHANC_USER, config.ORTHANC_PASS)
 
 
+
 def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
-    """Repassa a requisição pro Orthanc e retorna a resposta."""
+    """Forward request to Orthanc and stream response back to client."""
     url = f"{config.ORTHANC_URL}{orthanc_path}"
 
-    # Query string
     if request.query_string:
         url += f"?{request.query_string.decode('utf-8')}"
 
-    # Headers filtrados
     headers = {
         key: value
         for key, value in request.headers
@@ -56,22 +56,22 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
             stream=True,
         )
 
-        # Monta a resposta de volta pro cliente
-        # www-authenticate nunca deve chegar ao browser — o proxy autentica
-        # com o Orthanc internamente; expô-lo dispara popup nativo de Basic Auth
-        excluded_resp_headers = {"content-encoding", "transfer-encoding", "content-length", "www-authenticate"}
+        excluded_resp_headers = {
+            "content-encoding",
+            "transfer-encoding",
+            "content-length",
+            "www-authenticate",
+        }
         response_headers = {
             key: value
             for key, value in resp.headers.items()
             if key.lower() not in excluded_resp_headers
         }
 
-        # 401 do Orthanc jamais deve chegar ao cliente como 401 —
-        # o interceptor Axios trata qualquer 401 como token JWT inválido e desloga.
-        # Credencial errada no Orthanc é falha de configuração do servidor (502).
+        # Orthanc 401 should not bubble as 401 to frontend JWT interceptor.
         if resp.status_code == 401:
             return Response(
-                '{"error": "Falha de autenticação com o Orthanc. Verifique ORTHANC_USER/ORTHANC_PASS."}',
+                '{"error": "Falha de autenticacao com o Orthanc. Verifique ORTHANC_USER/ORTHANC_PASS."}',
                 status=502,
                 content_type="application/json",
             )
@@ -90,15 +90,82 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
         )
 
     except requests.ConnectionError:
-        return Response('{"error": "Orthanc indisponível"}', status=502, content_type="application/json")
+        return Response('{"error": "Orthanc indisponivel"}', status=502, content_type="application/json")
     except requests.Timeout:
-        return Response('{"error": "Timeout na conexão com Orthanc"}', status=504, content_type="application/json")
+        return Response('{"error": "Timeout na conexao com Orthanc"}', status=504, content_type="application/json")
     except requests.RequestException:
-        return Response('{"error": "Erro de comunicação com Orthanc"}', status=502, content_type="application/json")
+        return Response('{"error": "Erro de comunicacao com Orthanc"}', status=502, content_type="application/json")
 
 
-# ── Rotas de leitura ───────────────────────────────────
 
+def _to_finite_number(value):
+    """Try to coerce a value to finite float, otherwise return None."""
+    if isinstance(value, bool):
+        return None
+
+    if isinstance(value, (int, float)):
+        number = float(value)
+        return number if math.isfinite(number) else None
+
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+
+        try:
+            number = float(stripped)
+        except ValueError:
+            return None
+        return number if math.isfinite(number) else None
+
+    return None
+
+
+def _to_numeric_list(value):
+    """Accept list/tuple or DICOM-style multivalue string and return finite numbers."""
+    if isinstance(value, (list, tuple)):
+        items = value
+    elif isinstance(value, str) and "\\" in value:
+        items = [part.strip() for part in value.split("\\")]
+    else:
+        return None
+
+    if len(items) < 2:
+        return None
+
+    numbers = []
+    for item in items:
+        number = _to_finite_number(item)
+        if number is None:
+            return None
+        numbers.append(number)
+
+    return numbers
+
+
+def _pick_safe_spacing(payload_dict):
+    """Return (safe_spacing, source_tag_name) with semantic fallback."""
+    pixel_spacing = _to_numeric_list(payload_dict.get("PixelSpacing"))
+    if pixel_spacing is not None:
+        return pixel_spacing, "PixelSpacing"
+
+    imager_pixel_spacing = _to_numeric_list(payload_dict.get("ImagerPixelSpacing"))
+    if imager_pixel_spacing is not None:
+        return imager_pixel_spacing, "ImagerPixelSpacing"
+
+    return None, None
+
+
+def _normalize_simplified_tags_payload(payload):
+    """Minimal defensive normalization for simplified-tags."""
+    normalized = dict(payload) if isinstance(payload, dict) else {}
+    safe_spacing, safe_spacing_source = _pick_safe_spacing(normalized)
+    normalized["safeSpacing"] = safe_spacing
+    normalized["safeSpacingSource"] = safe_spacing_source
+    return normalized
+
+
+# Read routes
 @proxy_bp.route("/system", methods=["GET"])
 @require_auth
 def system():
@@ -177,8 +244,7 @@ def get_frame_preview(instance_id, frame):
     return proxy_request(f"/instances/{instance_id}/frames/{frame}/preview")
 
 
-# ── Busca ──────────────────────────────────────────────
-
+# Search
 @proxy_bp.route("/tools/find", methods=["POST"])
 @require_auth
 def find():
@@ -191,18 +257,81 @@ def lookup():
     return proxy_request("/tools/lookup")
 
 
-# ── Tags DICOM ─────────────────────────────────────────
-
+# DICOM tags
 @proxy_bp.route("/instances/<instance_id>/simplified-tags", methods=["GET"])
 @require_auth
 def get_simplified_tags(instance_id):
-    return proxy_request(f"/instances/{instance_id}/simplified-tags")
+    url = f"{config.ORTHANC_URL}/instances/{instance_id}/simplified-tags"
+
+    if request.query_string:
+        url += f"?{request.query_string.decode('utf-8')}"
+
+    headers = {
+        key: value
+        for key, value in request.headers
+        if key.lower() not in EXCLUDED_HEADERS
+    }
+
+    try:
+        resp = requests.request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            data=request.get_data(),
+            auth=_get_orthanc_auth(),
+            timeout=TIMEOUT_DEFAULT,
+            stream=False,
+        )
+
+        if resp.status_code == 401:
+            return Response(
+                '{"error": "Falha de autenticacao com o Orthanc. Verifique ORTHANC_USER/ORTHANC_PASS."}',
+                status=502,
+                content_type="application/json",
+            )
+
+        if resp.status_code != 200:
+            return Response(
+                resp.content,
+                status=resp.status_code,
+                content_type=resp.headers.get("content-type", "application/json"),
+            )
+
+        try:
+            payload = resp.json()
+        except ValueError:
+            return Response(
+                '{"error": "Resposta invalida de simplified-tags no Orthanc"}',
+                status=502,
+                content_type="application/json",
+            )
+
+        return jsonify(_normalize_simplified_tags_payload(payload))
+
+    except requests.ConnectionError:
+        return Response('{"error": "Orthanc indisponivel"}', status=502, content_type="application/json")
+    except requests.Timeout:
+        return Response('{"error": "Timeout na conexao com Orthanc"}', status=504, content_type="application/json")
+    except requests.RequestException:
+        return Response('{"error": "Erro de comunicacao com Orthanc"}', status=502, content_type="application/json")
 
 
 @proxy_bp.route("/instances/<instance_id>/tags", methods=["GET"])
 @require_auth
 def get_tags(instance_id):
     return proxy_request(f"/instances/{instance_id}/tags")
+
+
+@proxy_bp.route("/instances/<instance_id>/content", methods=["GET"])
+@require_auth
+def get_instance_content(instance_id):
+    return proxy_request(f"/instances/{instance_id}/content")
+
+
+@proxy_bp.route("/instances/<instance_id>/content/<path:content_path>", methods=["GET"])
+@require_auth
+def get_instance_content_path(instance_id, content_path):
+    return proxy_request(f"/instances/{instance_id}/content/{content_path}")
 
 
 @proxy_bp.route("/studies/<study_id>/series", methods=["GET"])
@@ -215,3 +344,4 @@ def get_study_series(study_id):
 @require_auth
 def get_patient_studies(patient_id):
     return proxy_request(f"/patients/{patient_id}/studies")
+

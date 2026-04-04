@@ -15,8 +15,9 @@ export function usePatients() {
   const filtered = patients.filter((p: Patient) => {
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
-    const name = p.MainDicomTags.PatientName?.toLowerCase() ?? ''
-    const id = p.MainDicomTags.PatientID?.toLowerCase() ?? ''
+    const tags = p.MainDicomTags ?? {}
+    const name = typeof tags.PatientName === 'string' ? tags.PatientName.toLowerCase() : ''
+    const id = typeof tags.PatientID === 'string' ? tags.PatientID.toLowerCase() : ''
     return name.includes(q) || id.includes(q)
   })
 
