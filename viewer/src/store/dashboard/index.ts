@@ -5,13 +5,13 @@ import type { Patient, Study } from '@/types/orthanc'
 
 const PAGE_SIZE = 50
 
-interface DashboardFilters {
+export interface DashboardFilters {
   modality: string
   dateFrom: string
   dateTo: string
 }
 
-const DEFAULT_FILTERS: DashboardFilters = { modality: '', dateFrom: '', dateTo: '' }
+export const DEFAULT_FILTERS: DashboardFilters = { modality: '', dateFrom: '', dateTo: '' }
 
 interface DashboardState {
   patients: Patient[]
@@ -31,6 +31,7 @@ interface DashboardState {
   selectPatient: (id: string | null) => void
   setSearchQuery: (q: string) => void
   setFilters: (f: Partial<DashboardFilters>) => void
+  clearFilters: () => void
   setOrtahncOffline: (v: boolean) => void
   nextPage: () => void
   prevPage: () => void
@@ -81,12 +82,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
-  selectPatient: (id) => set({ selectedPatientId: id, studies: [], filters: { ...DEFAULT_FILTERS } }),
+  selectPatient: (id) => set({ selectedPatientId: id, studies: [] }),
 
   setSearchQuery: (searchQuery) => set({ searchQuery }),
 
   setFilters: (f) =>
     set((state) => ({ filters: { ...state.filters, ...f } })),
+  clearFilters: () => set({ filters: { ...DEFAULT_FILTERS } }),
 
   setOrtahncOffline: (v) => set({ isOrtahncOffline: v }),
 

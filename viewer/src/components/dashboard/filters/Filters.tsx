@@ -1,5 +1,6 @@
 import { Select } from '@/components/common/inputs/Select'
 import { Input } from '@/components/common/inputs/Input'
+import { Button } from '@/components/common/buttons/Button'
 import { useDashboardStore } from '@/store/dashboard'
 
 const MODALITY_OPTIONS = [
@@ -13,7 +14,8 @@ const MODALITY_OPTIONS = [
 ]
 
 export function Filters() {
-  const { filters, setFilters } = useDashboardStore()
+  const { filters, setFilters, clearFilters } = useDashboardStore()
+  const hasActiveFilters = Boolean(filters.modality.trim() || filters.dateFrom || filters.dateTo)
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -38,6 +40,11 @@ export function Filters() {
         placeholder="Data fim"
         title="Data fim"
       />
+      <div className="flex items-end">
+        <Button type="button" variant="secondary" size="sm" onClick={clearFilters} disabled={!hasActiveFilters}>
+          Limpar filtros
+        </Button>
+      </div>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { ConnectionError } from '@/components/common/errors/ConnectionError'
 import { SkeletonCard } from '@/components/common/loading/SkeletonCard'
 import { usePatients } from '@/hooks/orthanc/usePatients'
@@ -8,6 +9,12 @@ export function PatientList() {
   const { patients, isLoading, isOrtahncOffline, fetchError, refetch, page, hasMore, nextPage, prevPage } =
     usePatients()
   const { selectedPatientId, selectPatient } = useDashboardStore()
+
+  useEffect(() => {
+    if (isLoading || !selectedPatientId) return
+    const isVisible = patients.some((patient) => patient.ID === selectedPatientId)
+    if (!isVisible) selectPatient(null)
+  }, [isLoading, patients, selectedPatientId, selectPatient])
 
   if (isOrtahncOffline) {
     return <ConnectionError onRetry={refetch} />
