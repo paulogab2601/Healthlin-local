@@ -94,4 +94,12 @@ export const instancesService = {
   getPreviewUrl(id: string): string {
     return `/api/orthanc/instances/${id}/preview`
   },
+
+  async getPreviewBlob(id: string, signal?: AbortSignal): Promise<Blob> {
+    const res = await api.get<Blob>(`/api/orthanc/instances/${id}/preview`, {
+      responseType: 'blob',
+      signal,
+    })
+    return res.data
+  },
 }
