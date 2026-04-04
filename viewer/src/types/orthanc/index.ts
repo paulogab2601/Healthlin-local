@@ -18,6 +18,7 @@ export interface StudyMainDicomTags {
   StudyInstanceUID?: string
   ReferringPhysicianName?: string
   ModalitiesInStudy?: string
+  Modality?: string
 }
 
 export interface Study {

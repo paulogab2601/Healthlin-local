@@ -11,6 +11,8 @@ interface DashboardFilters {
   dateTo: string
 }
 
+const DEFAULT_FILTERS: DashboardFilters = { modality: '', dateFrom: '', dateTo: '' }
+
 interface DashboardState {
   patients: Patient[]
   studies: Study[]
@@ -40,7 +42,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   patients: [],
   studies: [],
   selectedPatientId: null,
-  filters: { modality: '', dateFrom: '', dateTo: '' },
+  filters: { ...DEFAULT_FILTERS },
   searchQuery: '',
   isLoadingPatients: false,
   isLoadingStudies: false,
@@ -82,7 +84,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
-  selectPatient: (id) => set({ selectedPatientId: id, studies: [] }),
+  selectPatient: (id) => set({ selectedPatientId: id, studies: [], filters: { ...DEFAULT_FILTERS } }),
 
   setSearchQuery: (searchQuery) => set({ searchQuery }),
 

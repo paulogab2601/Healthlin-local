@@ -1,5 +1,5 @@
 import api from '../../api'
-import type { Patient } from '@/types/orthanc'
+import type { Patient, Study } from '@/types/orthanc'
 
 export interface PaginatedPatients {
   patients: Patient[]
@@ -23,8 +23,8 @@ export const patientsService = {
     return res.data
   },
 
-  async getStudies(id: string, signal?: AbortSignal) {
-    const res = await api.get(`/api/orthanc/patients/${id}/studies`, { signal })
+  async getStudies(id: string, signal?: AbortSignal): Promise<Study[]> {
+    const res = await api.get<Study[]>(`/api/orthanc/patients/${id}/studies?expand`, { signal })
     return res.data
   },
 }

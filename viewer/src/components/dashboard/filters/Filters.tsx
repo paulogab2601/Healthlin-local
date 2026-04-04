@@ -4,12 +4,12 @@ import { useDashboardStore } from '@/store/dashboard'
 
 const MODALITY_OPTIONS = [
   { value: '', label: 'Todas as modalidades' },
+  { value: 'DX', label: 'DX — Raio-X Digital' },
+  { value: 'CR', label: 'CR — Raio-X Digitalizado' },
   { value: 'CT', label: 'CT — Tomografia' },
   { value: 'MR', label: 'MR — Ressonância' },
-  { value: 'CR', label: 'CR — Radiografia' },
   { value: 'US', label: 'US — Ultrassom' },
-  { value: 'NM', label: 'NM — Med. Nuclear' },
-  { value: 'PT', label: 'PT — PET' },
+  { value: 'MG', label: 'MG — Mamografia' },
 ]
 
 export function Filters() {

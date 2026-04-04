@@ -5,6 +5,7 @@ import { SkeletonCard } from '@/components/common/loading/SkeletonCard'
 import { ModalityBadge } from '@/components/common/badges/ModalityBadge'
 import { Button } from '@/components/common/buttons/Button'
 import { formatDate } from '@/utils/format'
+import { getStudyModalities } from '@/utils/dicom'
 
 export function ExamList() {
   const { selectedPatientId } = useDashboardStore()
@@ -33,6 +34,7 @@ export function ExamList() {
     <div className="space-y-2">
       {studies.map((study) => {
         const tags = study.MainDicomTags
+        const studyModalities = getStudyModalities(tags)
         return (
           <div
             key={study.ID}
@@ -54,7 +56,7 @@ export function ExamList() {
 
             <div className="flex items-center justify-between">
               <div className="flex flex-wrap gap-1">
-                {(tags.ModalitiesInStudy ?? '').split('\\').filter(Boolean).map((m) => (
+                {studyModalities.map((m) => (
                   <ModalityBadge key={m} modality={m} />
                 ))}
               </div>

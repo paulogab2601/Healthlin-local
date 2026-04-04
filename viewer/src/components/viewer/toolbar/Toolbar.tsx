@@ -67,7 +67,7 @@ const TOOLS: Tool[] = [
 
 export function Toolbar() {
   const { activeTool, setActiveTool } = useViewerStore()
-  const { activateTool, clearAnnotations } = useCornerstone()
+  const { activateTool } = useCornerstone()
 
   return (
     <div className="flex items-center gap-1 px-2 py-1 bg-bg-secondary border-b border-bg-tertiary">
@@ -87,19 +87,7 @@ export function Toolbar() {
           <span className="hidden sm:inline">{tool.label}</span>
         </button>
       ))}
-
-      <div className="mx-1 h-5 w-px bg-bg-tertiary" />
-
-      <button
-        onClick={clearAnnotations}
-        title="Limpar anotações"
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors text-text-secondary hover:bg-bg-tertiary hover:text-danger"
-      >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5h6v2m-8 0l1 12h6l1-12" />
-        </svg>
-        <span className="hidden sm:inline">Limpar</span>
-      </button>
     </div>
   )
 }
+
