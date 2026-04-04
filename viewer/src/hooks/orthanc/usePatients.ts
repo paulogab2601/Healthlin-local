@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDashboardStore } from '@/store/dashboard'
 import { patientsService } from '@/services/orthanc/patients'
+import { studiesService } from '@/services/orthanc/studies'
 import { isRequestCanceled } from '@/services/network-error'
 import type { Patient, Study } from '@/types/orthanc'
-import { filterStudiesByFilters, hasStudyFilters } from '@/utils/dicom'
+import { buildOrthancStudyDateQueryValue, filterStudiesByFilters, hasStudyFilters } from '@/utils/dicom'
+
+function extractMatchingPatientIdsFromStudies(studies: Study[], filters: { modality: string; dateFrom: string; dateTo: string }): Set<string> {
+  return new Set(
+    filterStudiesByFilters(studies, filters)
+      .map((study) => study.PatientID)
+      .filter((patientId): patientId is string => typeof patientId === 'string' && patientId.trim().length > 0),
+  )
+}
 
 export function usePatients() {
   const {
@@ -23,6 +32,7 @@ export function usePatients() {
   const [matchingPatientIds, setMatchingPatientIds] = useState<Set<string> | null>(null)
   const [isFilteringByStudies, setIsFilteringByStudies] = useState(false)
   const studiesCacheRef = useRef<Map<string, Study[]>>(new Map())
+  const studiesByDateQueryCacheRef = useRef<Map<string, Study[]>>(new Map())
 
   const studyFilters = useMemo(
     () => ({
@@ -33,6 +43,10 @@ export function usePatients() {
     [filters.modality, filters.dateFrom, filters.dateTo],
   )
   const shouldApplyStudyFilter = hasStudyFilters(studyFilters)
+  const studyDateQueryValue = useMemo(
+    () => buildOrthancStudyDateQueryValue(studyFilters),
+    [studyFilters],
+  )
 
   useEffect(() => {
     fetchPatients()
@@ -69,6 +83,26 @@ export function usePatients() {
     setIsFilteringByStudies(true)
 
     void (async () => {
+      if (studyDateQueryValue) {
+        try {
+          let studies = studiesByDateQueryCacheRef.current.get(studyDateQueryValue)
+
+          if (!studies) {
+            studies = await studiesService.findByStudyDate(studyDateQueryValue, controller.signal)
+            studiesByDateQueryCacheRef.current.set(studyDateQueryValue, studies)
+          }
+
+          if (!isActive) return
+
+          setMatchingPatientIds(extractMatchingPatientIdsFromStudies(studies, studyFilters))
+          setIsFilteringByStudies(false)
+          return
+        } catch (error) {
+          if (isRequestCanceled(error)) return
+          // Fallback to per-patient loading when /tools/find fails.
+        }
+      }
+
       const matchingIds = await Promise.all(
         searchedPatients.map(async (patient) => {
           if (!Array.isArray(patient.Studies) || patient.Studies.length === 0) return null
@@ -99,7 +133,7 @@ export function usePatients() {
       isActive = false
       controller.abort()
     }
-  }, [searchedPatients, shouldApplyStudyFilter, studyFilters])
+  }, [searchedPatients, shouldApplyStudyFilter, studyDateQueryValue, studyFilters])
 
   const filteredPatients = useMemo(() => {
     if (!shouldApplyStudyFilter) return searchedPatients

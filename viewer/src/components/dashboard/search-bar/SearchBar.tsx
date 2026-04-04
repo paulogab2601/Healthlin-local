@@ -7,6 +7,10 @@ export function SearchBar() {
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  useEffect(() => {
+    setValue(searchQuery)
+  }, [searchQuery])
+
   // Debounce 300ms
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)

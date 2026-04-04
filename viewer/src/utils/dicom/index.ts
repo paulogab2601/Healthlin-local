@@ -98,6 +98,16 @@ export function normalizeStudyFilterDate(value?: string | null): string | null {
   return isValidDicomDate(normalized) ? normalized : null
 }
 
+export function buildOrthancStudyDateQueryValue(filters: Pick<StudyFilterValues, 'dateFrom' | 'dateTo'>): string | null {
+  const dateFrom = normalizeStudyFilterDate(filters.dateFrom)
+  const dateTo = normalizeStudyFilterDate(filters.dateTo)
+
+  if (!dateFrom && !dateTo) return null
+  if (dateFrom && dateTo) return dateFrom === dateTo ? dateFrom : `${dateFrom}-${dateTo}`
+  if (dateFrom) return `${dateFrom}-`
+  return `-${dateTo}`
+}
+
 export function hasStudyFilters(filters: StudyFilterValues): boolean {
   return Boolean((filters.modality ?? '').trim() || filters.dateFrom || filters.dateTo)
 }

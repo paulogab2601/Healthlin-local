@@ -14,8 +14,12 @@ const MODALITY_OPTIONS = [
 ]
 
 export function Filters() {
-  const { filters, setFilters, clearFilters } = useDashboardStore()
-  const hasActiveFilters = Boolean(filters.modality.trim() || filters.dateFrom || filters.dateTo)
+  const { filters, searchQuery, isDefaultDateFilterActive, setFilters, clearFilters } = useDashboardStore()
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() ||
+    filters.modality.trim() ||
+    (!isDefaultDateFilterActive && (filters.dateFrom || filters.dateTo)),
+  )
 
   return (
     <div className="flex flex-wrap gap-3">

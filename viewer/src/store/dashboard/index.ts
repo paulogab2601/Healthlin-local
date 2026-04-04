@@ -13,11 +13,33 @@ export interface DashboardFilters {
 
 export const DEFAULT_FILTERS: DashboardFilters = { modality: '', dateFrom: '', dateTo: '' }
 
+function getTodayLocalDateInputValue(now = new Date()): string {
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function buildDefaultDateFilters(): DashboardFilters {
+  const today = getTodayLocalDateInputValue()
+  return { modality: '', dateFrom: today, dateTo: today }
+}
+
+function hasManualDashboardFilters(filters: DashboardFilters, searchQuery: string): boolean {
+  return Boolean(
+    searchQuery.trim() ||
+    filters.modality.trim() ||
+    filters.dateFrom ||
+    filters.dateTo,
+  )
+}
+
 interface DashboardState {
   patients: Patient[]
   studies: Study[]
   selectedPatientId: string | null
   filters: DashboardFilters
+  isDefaultDateFilterActive: boolean
   searchQuery: string
   isLoadingPatients: boolean
   isLoadingStudies: boolean
@@ -43,7 +65,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   patients: [],
   studies: [],
   selectedPatientId: null,
-  filters: { ...DEFAULT_FILTERS },
+  filters: buildDefaultDateFilters(),
+  isDefaultDateFilterActive: true,
   searchQuery: '',
   isLoadingPatients: false,
   isLoadingStudies: false,
@@ -84,11 +107,53 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   selectPatient: (id) => set({ selectedPatientId: id, studies: [] }),
 
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
+  setSearchQuery: (searchQuery) =>
+    set((state) => {
+      if (state.isDefaultDateFilterActive) {
+        if (searchQuery.trim().length === 0) return { searchQuery }
+
+        return {
+          searchQuery,
+          isDefaultDateFilterActive: false,
+          filters: { ...DEFAULT_FILTERS },
+        }
+      }
+
+      if (hasManualDashboardFilters(state.filters, searchQuery)) {
+        return { searchQuery }
+      }
+
+      return {
+        searchQuery: '',
+        filters: buildDefaultDateFilters(),
+        isDefaultDateFilterActive: true,
+      }
+    }),
 
   setFilters: (f) =>
-    set((state) => ({ filters: { ...state.filters, ...f } })),
-  clearFilters: () => set({ filters: { ...DEFAULT_FILTERS } }),
+    set((state) => {
+      const nextFilters = state.isDefaultDateFilterActive
+        ? { ...DEFAULT_FILTERS, ...f }
+        : { ...state.filters, ...f }
+
+      if (!hasManualDashboardFilters(nextFilters, state.searchQuery)) {
+        return {
+          filters: buildDefaultDateFilters(),
+          isDefaultDateFilterActive: true,
+        }
+      }
+
+      return {
+        filters: nextFilters,
+        isDefaultDateFilterActive: false,
+      }
+    }),
+  clearFilters: () =>
+    set({
+      filters: buildDefaultDateFilters(),
+      searchQuery: '',
+      isDefaultDateFilterActive: true,
+    }),
 
   setOrtahncOffline: (v) => set({ isOrtahncOffline: v }),
 
