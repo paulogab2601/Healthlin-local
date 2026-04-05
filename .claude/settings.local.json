@@ -14,7 +14,9 @@
       "Bash(grep -oE 'Ha=[^;]{0,50}' assets/index-82cfv9Gi.js)",
       "Bash(grep -oE '.{0,100}Ha\\\\.exports.{0,20}' assets/index-82cfv9Gi.js)",
       "Bash(grep -o '..\\\\bbo\\\\b..\\\\{0,80\\\\}' cornerstone-BSnoOymZ.js)",
-      "Bash(grep -oE '.{0,50}function bo.{0,50}' cornerstone-BSnoOymZ.js)"
+      "Bash(grep -oE '.{0,50}function bo.{0,50}' cornerstone-BSnoOymZ.js)",
+      "Bash(ls /c/Users/paulo/Desktop/Repositories/Healthlin-local/viewer/node_modules/@cornerstonejs/dicom-image-loader/dist/*.js)",
+      "Bash(node -e ':*)"
     ]
   }
 }

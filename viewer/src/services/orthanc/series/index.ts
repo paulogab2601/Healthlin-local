@@ -1,4 +1,5 @@
 import api from '../../api'
+import axios from 'axios'
 import type { Series, Instance } from '@/types/orthanc'
 
 type SeriesInstancesResponseItem = string | Instance
@@ -40,7 +41,10 @@ export const seriesService = {
         if (typeof item === 'string') return true
         return isRecord(item) && typeof (item as Instance).ID === 'string'
       })
-    } catch {
+    } catch (error) {
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined
+      if (status !== 400) throw error
+
       const res = await api.get<SeriesInstancesResponseItem[]>(`/api/orthanc/series/${id}/instances`)
       if (!Array.isArray(res.data)) return []
       return res.data.filter((item) => {

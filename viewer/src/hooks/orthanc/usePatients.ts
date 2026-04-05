@@ -103,25 +103,33 @@ export function usePatients() {
         }
       }
 
-      const matchingIds = await Promise.all(
-        searchedPatients.map(async (patient) => {
-          if (!Array.isArray(patient.Studies) || patient.Studies.length === 0) return null
+      const CONCURRENCY = 5
+      const matchingIds: (string | null)[] = []
 
-          let studies = studiesCacheRef.current.get(patient.ID)
+      for (let i = 0; i < searchedPatients.length; i += CONCURRENCY) {
+        if (!isActive) return
+        const batch = searchedPatients.slice(i, i + CONCURRENCY)
+        const batchResults = await Promise.all(
+          batch.map(async (patient) => {
+            if (!Array.isArray(patient.Studies) || patient.Studies.length === 0) return null
 
-          if (!studies) {
-            try {
-              studies = await patientsService.getStudies(patient.ID, controller.signal)
-              studiesCacheRef.current.set(patient.ID, studies)
-            } catch (error) {
-              if (isRequestCanceled(error)) return null
-              return null
+            let studies = studiesCacheRef.current.get(patient.ID)
+
+            if (!studies) {
+              try {
+                studies = await patientsService.getStudies(patient.ID, controller.signal)
+                studiesCacheRef.current.set(patient.ID, studies)
+              } catch (error) {
+                if (isRequestCanceled(error)) return null
+                return null
+              }
             }
-          }
 
-          return filterStudiesByFilters(studies, studyFilters).length > 0 ? patient.ID : null
-        }),
-      )
+            return filterStudiesByFilters(studies, studyFilters).length > 0 ? patient.ID : null
+          }),
+        )
+        matchingIds.push(...batchResults)
+      }
 
       if (!isActive) return
 

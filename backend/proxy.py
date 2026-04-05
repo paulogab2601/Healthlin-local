@@ -16,6 +16,12 @@ STREAM_CHUNK_SIZE = 64 * 1024  # 64 KB
 # Headers that should not be forwarded to Orthanc
 EXCLUDED_HEADERS = {"host", "authorization", "content-length", "transfer-encoding"}
 
+# Persistent HTTP session with connection pooling for Orthanc requests
+_orthanc_session = requests.Session()
+_adapter = requests.adapters.HTTPAdapter(pool_connections=4, pool_maxsize=10)
+_orthanc_session.mount("http://", _adapter)
+_orthanc_session.mount("https://", _adapter)
+
 
 def _global_orthanc_auth():
     return (config.ORTHANC_USER, config.ORTHANC_PASS)
@@ -36,7 +42,7 @@ def _get_orthanc_auth():
 
 
 def _request_orthanc(url, headers, payload, auth, timeout, stream):
-    return requests.request(
+    return _orthanc_session.request(
         method=request.method,
         url=url,
         headers=headers,

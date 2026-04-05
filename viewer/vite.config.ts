@@ -9,10 +9,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       // Substitui o modulo WASM de segmentacao por stub vazio (nao usado).
       '@icr/polyseg-wasm': path.resolve(__dirname, './src/stubs/polyseg-stub.ts'),
-      // Usa bundle sem web workers para evitar erro de decodeTask em runtime.
+      // Usa bundle com web workers (decoding em threads separadas).
       '@cornerstonejs/dicom-image-loader': path.resolve(
         __dirname,
-        './node_modules/@cornerstonejs/dicom-image-loader/dist/cornerstoneDICOMImageLoaderNoWebWorkers.bundle.min.js',
+        './node_modules/@cornerstonejs/dicom-image-loader/dist/cornerstoneDICOMImageLoader.bundle.min.js',
       ),
     },
   },
@@ -34,8 +34,11 @@ export default defineConfig({
     target: 'esnext',
     rollupOptions: {
       output: {
-        // Nao usar manualChunks: mantemos runtime do Cornerstone no mesmo
-        // chunk carregado dinamicamente para reduzir risco de ordem de execucao.
+        manualChunks(id) {
+          if (id.includes('@cornerstonejs/dicom-image-loader')) return 'dicom-loader'
+          if (id.includes('@cornerstonejs/core') || id.includes('@cornerstonejs/tools')) return 'cornerstone-runtime'
+          if (id.includes('dicom-parser')) return 'dicom-loader'
+        },
       },
     },
   },
