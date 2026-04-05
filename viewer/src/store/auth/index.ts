@@ -73,8 +73,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const user = await authService.me()
       set({ user, isAuthenticated: true, isHydrating: false })
-    } catch {
-      get().logout()
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      // Só desloga em 401/403 (token inválido/expirado).
+      // Erros transitórios (rede, 5xx) preservam a sessão.
+      if (status === 401 || status === 403) {
+        get().logout()
+      }
       set({ isHydrating: false })
     }
   },

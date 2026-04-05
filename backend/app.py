@@ -29,30 +29,6 @@ def create_app():
     # Conecta subscribers ao signal de mudança de usuário
     user_changed.connect(lambda sender, **kw: orthanc_sync.request_sync())
 
-    # Valida que o diretório do banco existe antes de tentar criar/abrir
-    db_dir = os.path.dirname(os.path.abspath(config.DB_PATH))
-    if not os.path.isdir(db_dir):
-        raise RuntimeError(
-            f"Diretório do banco não existe: {db_dir}\n"
-            f"Crie o diretório ou defina DB_PATH com um caminho válido."
-        )
-
-    # Inicializa o banco
-    models.init_db()
-
-    # Admin inicial — rápido (check + insert SQLite), necessário antes de servir
-    create_initial_admin()
-
-    # Orthanc sync — pode ser lento (file I/O + systemctl restart com timeout 30s),
-    # roda em background para não bloquear o boot do servidor
-    def _background_sync():
-        try:
-            orthanc_sync.sync_orthanc_users()
-        except Exception:
-            logger.exception("Falha no sync inicial do Orthanc (background)")
-
-    threading.Thread(target=_background_sync, daemon=True, name="orthanc-init-sync").start()
-
     @app.route("/api/health", methods=["GET"])
     def health():
         return {"status": "ok"}
@@ -69,6 +45,42 @@ def create_app():
         return {"error": "Frontend não encontrado. Execute npm run build."}, 404
 
     return app
+
+
+# ── Bootstrap (roda UMA vez, antes do fork dos workers) ──────
+
+_bootstrapped = False
+
+
+def bootstrap():
+    """Inicializa DB, admin e sync do Orthanc. Deve rodar apenas uma vez."""
+    global _bootstrapped
+    if _bootstrapped:
+        return
+    _bootstrapped = True
+
+    # Valida que o diretório do banco existe antes de tentar criar/abrir
+    db_dir = os.path.dirname(os.path.abspath(config.DB_PATH))
+    if not os.path.isdir(db_dir):
+        raise RuntimeError(
+            f"Diretório do banco não existe: {db_dir}\n"
+            f"Crie o diretório ou defina DB_PATH com um caminho válido."
+        )
+
+    # Inicializa o banco
+    models.init_db()
+
+    # Admin inicial
+    create_initial_admin()
+
+    # Orthanc sync em background
+    def _background_sync():
+        try:
+            orthanc_sync.sync_orthanc_users()
+        except Exception:
+            logger.exception("Falha no sync inicial do Orthanc (background)")
+
+    threading.Thread(target=_background_sync, daemon=True, name="orthanc-init-sync").start()
 
 
 # ── Criar admin inicial ───────────────────────────────
@@ -100,6 +112,7 @@ def create_initial_admin():
 
 
 if __name__ == "__main__":
+    bootstrap()
     app = create_app()
     app.run(host=config.HOST, port=config.PORT, debug=False)
 

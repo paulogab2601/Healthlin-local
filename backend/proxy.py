@@ -1,4 +1,5 @@
 ﻿import math
+import logging
 
 import requests
 from flask import Blueprint, request, Response, g, jsonify
@@ -6,6 +7,8 @@ from flask import Blueprint, request, Response, g, jsonify
 from auth import require_auth
 import config
 import models
+
+logger = logging.getLogger(__name__)
 
 proxy_bp = Blueprint("proxy", __name__, url_prefix="/api/orthanc")
 
@@ -118,6 +121,7 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT, stream=False):
         # Orthanc 401 should not bubble as 401 to frontend JWT interceptor.
         if resp.status_code == 401:
             resp.close()
+            logger.warning("proxy_request 401 from Orthanc | path=%s user=%s", orthanc_path, getattr(g, 'user_id', None))
             return Response(
                 '{"error": "Falha de autenticacao com o Orthanc. Verifique sincronizacao do usuario e credenciais globais."}',
                 status=502,
@@ -147,11 +151,14 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT, stream=False):
             headers=response_headers,
         )
 
-    except requests.ConnectionError:
+    except requests.ConnectionError as exc:
+        logger.error("proxy_request ConnectionError | path=%s user=%s error=%s", orthanc_path, getattr(g, 'user_id', None), exc)
         return Response('{"error": "Orthanc indisponivel"}', status=502, content_type="application/json")
-    except requests.Timeout:
+    except requests.Timeout as exc:
+        logger.error("proxy_request Timeout | path=%s user=%s timeout=%ss error=%s", orthanc_path, getattr(g, 'user_id', None), timeout, exc)
         return Response('{"error": "Timeout na conexao com Orthanc"}', status=504, content_type="application/json")
-    except requests.RequestException:
+    except requests.RequestException as exc:
+        logger.exception("proxy_request RequestException | path=%s user=%s", orthanc_path, getattr(g, 'user_id', None))
         return Response('{"error": "Erro de comunicacao com Orthanc"}', status=502, content_type="application/json")
 
 
@@ -353,6 +360,7 @@ def get_simplified_tags(instance_id):
 
         if resp.status_code == 401:
             resp.close()
+            logger.warning("simplified_tags 401 from Orthanc | instance=%s user=%s", instance_id, getattr(g, 'user_id', None))
             return Response(
                 '{"error": "Falha de autenticacao com o Orthanc. Verifique sincronizacao do usuario e credenciais globais."}',
                 status=502,
@@ -360,6 +368,7 @@ def get_simplified_tags(instance_id):
             )
 
         if resp.status_code != 200:
+            logger.warning("simplified_tags unexpected status | instance=%s status=%s user=%s", instance_id, resp.status_code, getattr(g, 'user_id', None))
             return Response(
                 resp.content,
                 status=resp.status_code,
@@ -369,6 +378,7 @@ def get_simplified_tags(instance_id):
         try:
             payload = resp.json()
         except ValueError:
+            logger.error("simplified_tags invalid JSON | instance=%s user=%s", instance_id, getattr(g, 'user_id', None))
             return Response(
                 '{"error": "Resposta invalida de simplified-tags no Orthanc"}',
                 status=502,
@@ -377,11 +387,14 @@ def get_simplified_tags(instance_id):
 
         return jsonify(_normalize_simplified_tags_payload(payload))
 
-    except requests.ConnectionError:
+    except requests.ConnectionError as exc:
+        logger.error("simplified_tags ConnectionError | instance=%s user=%s error=%s", instance_id, getattr(g, 'user_id', None), exc)
         return Response('{"error": "Orthanc indisponivel"}', status=502, content_type="application/json")
-    except requests.Timeout:
+    except requests.Timeout as exc:
+        logger.error("simplified_tags Timeout | instance=%s user=%s error=%s", instance_id, getattr(g, 'user_id', None), exc)
         return Response('{"error": "Timeout na conexao com Orthanc"}', status=504, content_type="application/json")
     except requests.RequestException:
+        logger.exception("simplified_tags RequestException | instance=%s user=%s", instance_id, getattr(g, 'user_id', None))
         return Response('{"error": "Erro de comunicacao com Orthanc"}', status=502, content_type="application/json")
 
 

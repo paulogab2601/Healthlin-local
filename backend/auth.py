@@ -112,7 +112,7 @@ def me():
 @require_admin
 def list_all_users():
     page = request.args.get("page", 1, type=int)
-    per_page = min(request.args.get("per_page", 20, type=int), 100)
+    per_page = max(1, min(request.args.get("per_page", 20, type=int), 100))
     search = request.args.get("search", None, type=str)
     role = request.args.get("role", None, type=str)
     active_param = request.args.get("active", None, type=str)

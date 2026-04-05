@@ -57,12 +57,14 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState<UserRole>('medico')
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
+  const [listError, setListError] = useState('')
 
   const abortRef = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchUsers = useCallback(async (p = page, signal?: AbortSignal) => {
     setIsLoading(true)
+    setListError('')
     try {
       const result = await authService.listUsers({
         page: p,
@@ -74,7 +76,7 @@ export default function AdminUsersPage() {
       if (!signal?.aborted) setData(result)
     } catch (err) {
       if (signal?.aborted) return
-      throw err
+      if (!signal?.aborted) setListError('Erro ao carregar usuários. Tente novamente.')
     } finally {
       if (!signal?.aborted) setIsLoading(false)
     }
@@ -127,8 +129,15 @@ export default function AdminUsersPage() {
 
   async function handleReactivate(id: number) {
     if (!confirm('Reativar este usuário?')) return
-    await authService.reactivateUser(id)
-    fetchUsers()
+    try {
+      await authService.reactivateUser(id)
+      fetchUsers()
+    } catch (err: unknown) {
+      alert(
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        'Erro ao reativar usuário'
+      )
+    }
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -193,6 +202,15 @@ export default function AdminUsersPage() {
               {data.total} usuário{data.total !== 1 ? 's' : ''}
             </span>
           </div>
+
+          {listError && (
+            <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-danger/10 text-danger text-sm">
+              <span>{listError}</span>
+              <Button variant="secondary" size="sm" onClick={() => fetchUsers()}>
+                Tentar novamente
+              </Button>
+            </div>
+          )}
 
           {isLoading ? (
             <p className="text-text-muted">Carregando...</p>

@@ -24,6 +24,10 @@ def _get_cipher():
 _creds_cache: dict[int, tuple[float, tuple[str, str] | None]] = {}
 _CREDS_TTL = 60  # segundos
 
+# ── Geração de dados de usuário (para sync incremental) ──
+_user_generation = 0
+_sync_cache: tuple[int, list[dict]] | None = None  # (generation, credentials_list)
+
 
 def build_orthanc_username(council_type: str, council_number: str) -> str:
     """Monta username único para o Orthanc evitando colisões entre conselhos."""
@@ -32,6 +36,13 @@ def build_orthanc_username(council_type: str, council_number: str) -> str:
     if not normalized_type:
         return normalized_number
     return f"{normalized_type}__{normalized_number}"
+
+
+def _bump_user_generation():
+    """Incrementa a geração para invalidar o cache de sync."""
+    global _user_generation, _sync_cache
+    _user_generation += 1
+    _sync_cache = None
 
 
 def invalidate_credentials_cache(user_id: int | None = None):
@@ -43,8 +54,10 @@ def invalidate_credentials_cache(user_id: int | None = None):
 
 
 def get_db():
-    conn = sqlite3.connect(config.DB_PATH)
+    conn = sqlite3.connect(config.DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 
@@ -64,6 +77,10 @@ def init_db():
             UNIQUE(council_type, council_number)
         )
     """)
+    # Índices para consultas administrativas (listagem, filtros, ordenação)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_users_active_name ON users (active, name)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users (role)")
+
     # Migração: adiciona coluna em bancos existentes
     try:
         conn.execute("ALTER TABLE users ADD COLUMN password_encrypted TEXT")
@@ -109,6 +126,7 @@ def create_user(name, council_type, council_number, password, role="medico"):
             (name, council_type.upper(), council_number, password_hash, password_encrypted, role),
         )
         conn.commit()
+        _bump_user_generation()
         return True, "Usuário criado com sucesso"
     except sqlite3.IntegrityError:
         return False, "Usuário já existe com esse conselho/matrícula"
@@ -194,6 +212,7 @@ def deactivate_user(user_id, requester_id):
 
     conn.execute("UPDATE users SET active = 0 WHERE id = ?", (user_id,))
     conn.commit()
+    _bump_user_generation()
     conn.close()
     return True, "Usuário desativado"
 
@@ -204,6 +223,8 @@ def reactivate_user(user_id):
     conn.commit()
     rows = cur.rowcount
     conn.close()
+    if rows > 0:
+        _bump_user_generation()
     if rows == 0:
         # Distingue entre ID inexistente e usuário já ativo
         conn2 = get_db()
@@ -245,7 +266,12 @@ def get_user_credentials(user_id):
 
 
 def list_users_with_credentials():
-    """Retorna todos os usuários ativos com senha descriptografada (para sync no Orthanc)."""
+    """Retorna todos os usuários ativos com senha descriptografada (para sync no Orthanc).
+    Resultado é cacheado por geração — O(n) decrypt só ocorre quando dados mudam."""
+    global _sync_cache
+    if _sync_cache is not None and _sync_cache[0] == _user_generation:
+        return _sync_cache[1]
+
     conn = get_db()
     users = conn.execute(
         "SELECT council_type, council_number, password_encrypted FROM users WHERE active = 1"
@@ -266,6 +292,8 @@ def list_users_with_credentials():
                 )
             except Exception:
                 pass
+
+    _sync_cache = (_user_generation, result)
     return result
 
 
@@ -285,6 +313,7 @@ def update_password_encrypted(user_id: int, password: str) -> bool:
     conn.close()
     if updated:
         invalidate_credentials_cache(user_id)
+        _bump_user_generation()
     return updated
 
 
@@ -315,4 +344,5 @@ def change_password(user_id, current_password, new_password):
     conn.commit()
     conn.close()
     invalidate_credentials_cache(user_id)
+    _bump_user_generation()
     return True, "Senha alterada com sucesso"

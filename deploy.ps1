@@ -30,6 +30,7 @@ $BackendFiles = @(
     "auth.py",
     "config.py",
     "events.py",
+    "gunicorn_conf.py",
     "models.py",
     "proxy.py",
     "orthanc_sync.py",
@@ -101,6 +102,7 @@ sudo cp -a "$TMP_DIR/backend/app.py" /opt/healthlin/backend/app.py
 sudo cp -a "$TMP_DIR/backend/auth.py" /opt/healthlin/backend/auth.py
 sudo cp -a "$TMP_DIR/backend/config.py" /opt/healthlin/backend/config.py
 sudo cp -a "$TMP_DIR/backend/events.py" /opt/healthlin/backend/events.py
+sudo cp -a "$TMP_DIR/backend/gunicorn_conf.py" /opt/healthlin/backend/gunicorn_conf.py
 sudo cp -a "$TMP_DIR/backend/models.py" /opt/healthlin/backend/models.py
 sudo cp -a "$TMP_DIR/backend/proxy.py" /opt/healthlin/backend/proxy.py
 sudo cp -a "$TMP_DIR/backend/orthanc_sync.py" /opt/healthlin/backend/orthanc_sync.py

@@ -33,7 +33,10 @@ api.interceptors.response.use(
       queueMicrotask(() => { isLoggingOut = false })
     }
 
-    if (status !== 401 && isOrthancOfflineError(error)) {
+    // Só sinaliza offline quando a falha é em rota do Orthanc (imagens/estudos),
+    // evitando falso-positivo por erro em rotas de auth/admin.
+    const url = error.config?.url ?? ''
+    if (status !== 401 && url.includes('/api/orthanc/') && isOrthancOfflineError(error)) {
       window.dispatchEvent(new CustomEvent('orthanc:offline'))
     }
 
