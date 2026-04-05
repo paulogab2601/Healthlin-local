@@ -6,6 +6,13 @@ import { studiesService } from '@/services/orthanc/studies'
 import type { Instance, Series, Study } from '@/types/orthanc'
 import { sortDicomInstances } from '@/utils/dicom'
 import type { Annotation, ToolMode, WindowLevel } from '@/types/viewer'
+import { getWindowPresetById } from '@/components/viewer/imaging-filters/ImagingFiltersPanel'
+
+export interface ImagingFilters {
+  activeKernel: string | null
+  activeWindowPreset: string | null
+  activeMRSequence: string | null
+}
 
 function normalizeInstances(instanceList: Array<string | Instance>, seriesId: string): Instance[] {
   return instanceList
@@ -38,6 +45,7 @@ interface ViewerState {
   annotations: Annotation[]
   isOrtahncOffline: boolean
   isLoading: boolean
+  imagingFilters: ImagingFilters
 
   loadStudy: (studyId: string) => Promise<void>
   selectSeries: (seriesId: string) => Promise<void>
@@ -49,6 +57,9 @@ interface ViewerState {
   removeAnnotation: (id: string) => void
   clearAnnotations: () => void
   setOrtahncOffline: (v: boolean) => void
+  setActiveKernel: (id: string | null) => void
+  setActiveWindowPreset: (id: string | null) => void
+  setActiveMRSequence: (id: string | null) => void
 }
 
 let loadStudyVersion = 0
@@ -65,6 +76,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   annotations: [],
   isOrtahncOffline: false,
   isLoading: false,
+  imagingFilters: { activeKernel: null, activeWindowPreset: null, activeMRSequence: null },
 
   loadStudy: async (studyId) => {
     const version = ++loadStudyVersion
@@ -138,4 +150,18 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   removeAnnotation: (id) => set((state) => ({ annotations: state.annotations.filter((item) => item.id !== id) })),
   clearAnnotations: () => set({ annotations: [] }),
   setOrtahncOffline: (value) => set({ isOrtahncOffline: value }),
+
+  setActiveKernel: (id) =>
+    set((state) => ({ imagingFilters: { ...state.imagingFilters, activeKernel: id } })),
+
+  setActiveWindowPreset: (id) => {
+    const preset = getWindowPresetById(id)
+    set((state) => ({
+      imagingFilters: { ...state.imagingFilters, activeWindowPreset: id },
+      ...(preset ? { windowLevel: { windowCenter: preset.windowCenter, windowWidth: preset.windowWidth } } : {}),
+    }))
+  },
+
+  setActiveMRSequence: (id) =>
+    set((state) => ({ imagingFilters: { ...state.imagingFilters, activeMRSequence: id } })),
 }))

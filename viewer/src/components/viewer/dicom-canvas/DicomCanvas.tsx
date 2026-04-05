@@ -65,6 +65,9 @@ export function DicomCanvas() {
     loadStudy,
   } = useViewerStore()
 
+  const windowLevel = useViewerStore((s) => s.windowLevel)
+  const activeWindowPreset = useViewerStore((s) => s.imagingFilters.activeWindowPreset)
+
   const stackImageIds = useMemo(
     () => instances.map((instance) => instancesService.getFileUrl(instance.ID)).filter(Boolean),
     [instances],
@@ -310,6 +313,26 @@ export function DicomCanvas() {
       cancelled = true
     }
   }, [renderingEngine, stackImageIds, currentFrame])
+
+  // Apply window level preset to the cornerstone viewport whenever the store value changes.
+  useEffect(() => {
+    if (!renderingEngine || !activeWindowPreset) return
+
+    const viewport = renderingEngine.getViewport(VIEWPORT_ID) as
+      | { setProperties?: (p: { voiRange: { lower: number; upper: number } }) => void; render?: () => void }
+      | undefined
+
+    if (!viewport?.setProperties) return
+
+    const { windowCenter, windowWidth } = windowLevel
+    viewport.setProperties({
+      voiRange: {
+        lower: windowCenter - windowWidth / 2,
+        upper: windowCenter + windowWidth / 2,
+      },
+    })
+    viewport.render?.()
+  }, [renderingEngine, windowLevel, activeWindowPreset])
 
   if (renderingEngine === null && initError !== null) {
     return (

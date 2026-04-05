@@ -8,6 +8,7 @@ import { ImagePanel } from '@/components/viewer/image-panel/ImagePanel'
 import { MetadataPanel } from '@/components/viewer/metadata-panel/MetadataPanel'
 import { SeriesPanel } from '@/components/viewer/series-panel/SeriesPanel'
 import { Toolbar } from '@/components/viewer/toolbar/Toolbar'
+import { ImagingFiltersPanel } from '@/components/viewer/imaging-filters/ImagingFiltersPanel'
 import { useViewerStore } from '@/store/viewer'
 import { formatPatientName } from '@/utils/format'
 
@@ -73,6 +74,7 @@ export default function ViewerPage() {
             <>
               <div className="flex-1 min-h-0 relative">
                 <DicomCanvas />
+                <ImagingFiltersPanel />
                 <AnnotationOverlay />
               </div>
               <ImagePanel />
