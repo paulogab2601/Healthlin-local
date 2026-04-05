@@ -63,8 +63,8 @@ def _retry_with_global_auth_if_unauthorized(resp, url, headers, payload, auth, t
     )
 
 
-def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
-    """Forward request to Orthanc and stream response back to client."""
+def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT, stream=False):
+    """Forward request to Orthanc. Uses streaming only for heavy downloads."""
     url = f"{config.ORTHANC_URL}{orthanc_path}"
 
     if request.query_string:
@@ -85,7 +85,7 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
             payload=payload,
             auth=auth,
             timeout=timeout,
-            stream=True,
+            stream=stream,
         )
         resp = _retry_with_global_auth_if_unauthorized(
             resp=resp,
@@ -94,7 +94,7 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
             payload=payload,
             auth=auth,
             timeout=timeout,
-            stream=True,
+            stream=stream,
         )
 
         excluded_resp_headers = {
@@ -118,15 +118,25 @@ def proxy_request(orthanc_path, timeout=TIMEOUT_DEFAULT):
                 content_type="application/json",
             )
 
-        def stream_chunks():
-            try:
-                for chunk in resp.iter_content(chunk_size=STREAM_CHUNK_SIZE):
-                    yield chunk
-            finally:
-                resp.close()
+        if stream:
+            def stream_chunks():
+                try:
+                    for chunk in resp.iter_content(chunk_size=STREAM_CHUNK_SIZE):
+                        yield chunk
+                finally:
+                    resp.close()
 
+            return Response(
+                stream_chunks(),
+                status=resp.status_code,
+                headers=response_headers,
+            )
+
+        # Non-streaming: read full response and release connection immediately
+        data = resp.content
+        resp.close()
         return Response(
-            stream_chunks(),
+            data,
             status=resp.status_code,
             headers=response_headers,
         )
@@ -277,7 +287,7 @@ def get_instance_preview(instance_id):
 @proxy_bp.route("/instances/<instance_id>/file", methods=["GET"])
 @require_auth
 def get_instance_file(instance_id):
-    return proxy_request(f"/instances/{instance_id}/file", timeout=TIMEOUT_TRANSFER)
+    return proxy_request(f"/instances/{instance_id}/file", timeout=TIMEOUT_TRANSFER, stream=True)
 
 
 @proxy_bp.route("/instances/<instance_id>/frames/<int:frame>/preview", methods=["GET"])

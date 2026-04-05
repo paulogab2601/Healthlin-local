@@ -71,12 +71,19 @@ def sync_orthanc_users():
         with open(config.ORTHANC_CREDENTIALS_PATH, "w", encoding="utf-8") as f:
             f.write(new_content)
 
-        # Reinicia o Orthanc (o serviço roda como root, sem necessidade de sudo)
-        subprocess.run(
-            ["systemctl", "restart", "orthanc"],
-            check=True,
+        # Tenta reload gracioso primeiro (preserva conexões ativas);
+        # se o serviço não suportar reload, faz restart como fallback.
+        reload_result = subprocess.run(
+            ["systemctl", "reload", "orthanc"],
+            capture_output=True,
             timeout=30,
         )
+        if reload_result.returncode != 0:
+            subprocess.run(
+                ["systemctl", "restart", "orthanc"],
+                check=True,
+                timeout=30,
+            )
 
         logger.info("Orthanc sync concluído: %d usuário(s) registrado(s).", len(registered))
         return True, "Sync concluído"

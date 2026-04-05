@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { Header } from '@/components/layout/header/Header'
 import { Sidebar } from '@/components/layout/sidebar/Sidebar'
@@ -58,7 +58,10 @@ export default function AdminUsersPage() {
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
 
-  const fetchUsers = useCallback(async (p = page) => {
+  const abortRef = useRef<AbortController | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const fetchUsers = useCallback(async (p = page, signal?: AbortSignal) => {
     setIsLoading(true)
     try {
       const result = await authService.listUsers({
@@ -67,14 +70,31 @@ export default function AdminUsersPage() {
         search: search || undefined,
         role: (roleFilter as UserRole) || undefined,
         active: activeFilter === '' ? undefined : activeFilter === 'true',
-      })
-      setData(result)
+      }, signal)
+      if (!signal?.aborted) setData(result)
+    } catch (err) {
+      if (signal?.aborted) return
+      throw err
     } finally {
-      setIsLoading(false)
+      if (!signal?.aborted) setIsLoading(false)
     }
   }, [page, search, roleFilter, activeFilter])
 
-  useEffect(() => { fetchUsers() }, [fetchUsers])
+  useEffect(() => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      fetchUsers(page, controller.signal)
+    }, 300)
+
+    return () => {
+      controller.abort()
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [fetchUsers, page])
 
   // Reset para página 1 ao mudar filtros
   function handleSearchChange(value: string) {

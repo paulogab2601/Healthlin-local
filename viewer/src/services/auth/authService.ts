@@ -16,8 +16,8 @@ export const authService = {
     await api.put('/api/auth/change-password', data)
   },
 
-  async listUsers(params: ListUsersParams = {}): Promise<PaginatedUsers> {
-    const res = await api.get<PaginatedUsers>('/api/auth/users', { params })
+  async listUsers(params: ListUsersParams = {}, signal?: AbortSignal): Promise<PaginatedUsers> {
+    const res = await api.get<PaginatedUsers>('/api/auth/users', { params, signal })
     return res.data
   },
 
